@@ -65,7 +65,7 @@ function updateHighScore(newScore) {
 }
 
 function saveRecord(newScore){
-  const date = new Date().toLocaleDateString();
+  const date = new Date().toLocaleDateString("es-MX");
   const records = JSON.parse(localStorage.getItem("records")) || [];
   records.push({ score: newScore, date });
   records.sort((a,b) => b.score - a.score);
@@ -92,22 +92,30 @@ closeRecordsBtn.addEventListener("click", () => recordsPanel.classList.add("hidd
 // --- Juego ---
 let blocks = [];
 let currentBlock;
-let blockSpeed = 2;
-let direction = 1;
 let gameOver = false;
 
+// --- CAMBIO 1: La función de movimiento y el anclaje móvil se eliminan ---
+
 // Crear bloque colgante
-function createHangingBlock(x=width/2, y=50){
-  const block = Bodies.rectangle(x, y + 100, 80, 20, {
+function createHangingBlock(){
+  // La cuerda se acorta con la puntuación para aumentar la velocidad del péndulo
+  const ropeLength = Math.max(120 - score * 2.5, 60);
+  const startX = width / 2 + 100; // Inicia a un lado para que comience a balancearse
+  
+  const block = Bodies.rectangle(startX, ropeLength + 50, 20, 20, {
     restitution: 0,
-    render: { fillStyle: "#f8d24b" }
+    render: { fillStyle: "#73F84BFF" },
+    label: 'block'
   });
+  
   const rope = Constraint.create({
-    pointA: {x: x, y: y},
+    // El punto de anclaje ahora es fijo en el centro
+    pointA: { x: width / 2, y: 50 },
     bodyB: block,
-    length: 100,
-    stiffness: 0.9
+    length: ropeLength,
+    stiffness: 1
   });
+
   block.rope = rope;
   World.add(world, [block, rope]);
   return block;
@@ -117,54 +125,39 @@ function createHangingBlock(x=width/2, y=50){
 function spawnBlock(){
   currentBlock = createHangingBlock();
   blocks.push(currentBlock);
-  direction = 1;
-  Events.on(engine, "beforeUpdate", lateralMove);
-}
-
-// Movimiento lateral mientras cuelga
-function lateralMove(){
-  if(gameOver || !currentBlock) return;
-  if(currentBlock.rope){
-    Body.translate(currentBlock, {x: direction*blockSpeed, y:0});
-    if(currentBlock.position.x > width-40 || currentBlock.position.x < 40)
-      direction *= -1;
-  }
 }
 
 // Soltar bloque
 function dropBlock(){
-  if(gameOver || !currentBlock) return;
+  if(gameOver || !currentBlock || !currentBlock.rope) return;
+  
   monkeyHappy();
 
-  if(currentBlock.rope){
-    World.remove(world, currentBlock.rope);
-    currentBlock.rope = null;
-  }
+  World.remove(world, currentBlock.rope);
+  currentBlock.rope = null;
 
-  Events.off(engine, "beforeUpdate", lateralMove);
-
-  setTimeout(checkAlignment, 500);
-}
-
-// Validar caída
-function checkAlignment(){
-  const lastBlock = blocks[blocks.length-1];
-
-  // Primer bloque nunca termina el juego
-  const isFirstBlock = blocks.length === 1;
-
-  // Revisar si el bloque cae fuera de límites
-  if(!isFirstBlock && (lastBlock.position.y > height-50 || lastBlock.position.x < 40 || lastBlock.position.x > width-40)){
-    endGame();
-  } else {
+  // --- CAMBIO 2: Se elimina la anulación de velocidad para una caída natural ---
+  
+  setTimeout(() => {
+    if (gameOver) return;
     score++;
     scoreDisplay.textContent = score;
     updateHighScore(score);
     updateBackground();
     spawnBlock();
-  }
+    moveMonkeyToBlock(); // Mueve el mono al nuevo bloque
+  }, 500);
 }
 
+// Mueve el mono a la posición del bloque
+function moveMonkeyToBlock() {
+    // Calcula la nueva posición del mono basada en el bloque actual
+    const blockHeight = 20; // Altura del bloque
+    const newBottom = currentBlock.position.y - blockHeight/2; // Posición del nuevo bloque
+  
+    // Aplica la nueva posición al mono
+    monkey.style.bottom = `${newBottom}px`;
+}
 
 // Mono feliz/triste
 function monkeyHappy(){
@@ -190,17 +183,43 @@ function updateBackground(){
 
 // Fin del juego
 function endGame(){
+  if(gameOver) return;
   gameOver = true;
   monkeySad();
+  monkey.classList.add("monkey-falling"); // Añade la clase para la animación de caída
   finalScore.textContent = score;
   gameOverScreen.classList.remove("hidden");
 }
 
-// Controles
-document.addEventListener("keydown", e => { if(e.code==="Space") dropBlock(); });
+// Detectar colisiones
+Events.on(engine, 'collisionStart', (event) => {
+  if (gameOver) return;
+  const pairs = event.pairs;
+  for (let i = 0; i < pairs.length; i++) {
+    const pair = pairs[i];
+    const { bodyA, bodyB } = pair;
+    const isBlockOnGround = 
+      (blocks.includes(bodyA) && bodyB === ground) || 
+      (blocks.includes(bodyB) && bodyA === ground);
+
+    if (isBlockOnGround && score > 0) {
+      endGame();
+      break; 
+    }
+  }
+});
+
+// --- CAMBIO 3: Controles vuelven a ser solo para soltar el bloque ---
+document.addEventListener("keydown", e => {
+  if (e.code === "Space") {
+    dropBlock();
+  }
+});
+
 canvas.addEventListener("click", dropBlock);
 retryBtn.addEventListener("click", ()=>window.location.reload());
 menuBtn.addEventListener("click", ()=>window.location.href="index.html");
+
 
 // Iniciar primer bloque
 spawnBlock();

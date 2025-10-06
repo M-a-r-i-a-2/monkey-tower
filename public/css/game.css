@@ -100,3 +100,20 @@ button:hover {
   transform: scale(1.05);
   background-color: #ffe985;
 }
+
+#monkey {
+    position: absolute;
+    bottom: 20px; /* Ajusta según sea necesario */
+    left: 50%;
+    transform: translateX(-50%); /* Centra el mono */
+    height: 50px; /* Ajusta el tamaño según sea necesario */
+    transition: all 0.3s ease; /* Para transiciones suaves */
+}
+
+.monkey-happy {
+    transform: translateX(-50%) scale(1.2); /* Efecto de salto */
+}
+
+.monkey-sad {
+    transform: translateX(-50%) rotate(-10deg); /* Efecto de caída */
+}
