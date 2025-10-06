@@ -1,0 +1,102 @@
+/* ======== AJUSTE GENERAL ======== */
+body {
+  margin: 0;
+  background: linear-gradient(#4e9651, #24582a);
+  height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  overflow: hidden;
+  font-family: "Press Start 2P", monospace;
+  color: white;
+}
+
+/* ======== CONTENEDOR DEL JUEGO ======== */
+#game-container {
+  position: relative;
+  width: 90vw;         /* 90% del ancho visible */
+  height: 85vh;        /* 85% del alto visible */
+  padding: 15px;       /* margen interno */
+  box-sizing: border-box;
+  border-radius: 20px;
+  background: rgba(0, 0, 0, 0.3); /* ligero sombreado alrededor */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 25px rgba(0, 0, 0, 0.6);
+}
+
+/* ======== CANVAS ======== */
+canvas {
+  width: 100%;
+  height: 100%;
+  border-radius: 12px;
+  border: 3px solid #fff;
+  background: url("../assets/images/background/jungle_day.png") center/cover no-repeat;
+  box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.3);
+}
+
+/* ======== HUD ======== */
+#hud {
+  position: absolute;
+  top: 25px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2;
+  text-align: center;
+  font-size: 14px;
+}
+
+#hud h2,
+#hud h3 {
+  margin: 5px 0;
+}
+
+/* ======== GAME OVER ======== */
+#gameOver,
+#recordsPanel {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.85);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  z-index: 10;
+  text-align: center;
+  border-radius: 12px;
+}
+
+#gameOver.hidden,
+#recordsPanel.hidden {
+  display: none;
+}
+
+.panel {
+  background: rgba(255, 255, 255, 0.1);
+  border: 2px solid #fff;
+  border-radius: 12px;
+  padding: 30px 50px;
+  box-shadow: 0 0 15px rgba(0, 0, 0, 0.6);
+}
+
+button {
+  font-family: "Press Start 2P", monospace;
+  font-size: 12px;
+  padding: 12px 18px;
+  margin: 8px;
+  border: none;
+  border-radius: 10px;
+  background-color: #f8d24b;
+  cursor: pointer;
+  transition: transform 0.2s, background 0.3s;
+}
+
+button:hover {
+  transform: scale(1.05);
+  background-color: #ffe985;
+}

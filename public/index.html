@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Monkey Tower - Menú</title>
+    <link rel="stylesheet" href="css/menu.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Luckiest+Guy&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div id="menu-container">
+        <div class="menu-buttons">
+            <button id="play-btn">JUGAR</button>
+            <button id="options-btn">OPCIONES</button>
+            <button id="exit-btn">SALIR</button>
+        </div>
+    </div>
+
+    <div id="optionsPanel" class="hidden">
+        <div class="panel">
+            <h1>🔧 Opciones</h1>
+            
+            <div class="option-section">
+                <h2>Controles</h2>
+                <p><strong>Movimiento:</strong> Flechas Izquierda / Derecha</p>
+                <p><strong>Salto:</strong> Barra Espaciadora</p>
+            </div>
+
+            <div class="option-section">
+                <h2>Volumen del Juego</h2>
+                <label for="volume-slider">Maestro:</label>
+                <input type="range" id="volume-slider" min="0" max="100" value="75">
+            </div>
+            
+            <div class="panel-buttons">
+                <button id="view-records-btn">Ver Récords</button>
+                <button id="closeOptions">Cerrar</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="recordsPanel" class="hidden">
+        <div class="panel">
+            <h1>🏆 Récords locales</h1>
+            <ul id="recordsList">
+          
+            </ul>
+            <button id="closeRecords">Cerrar</button>
+        </div>
+    </div>
+
+    <script src="js/menu.js"></script>
+</body>
+</html>
