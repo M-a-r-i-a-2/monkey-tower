@@ -103,17 +103,29 @@ button:hover {
 
 #monkey {
     position: absolute;
-    bottom: 20px; /* Ajusta según sea necesario */
+    bottom: 20px;
     left: 50%;
-    transform: translateX(-50%); /* Centra el mono */
-    height: 50px; /* Ajusta el tamaño según sea necesario */
-    transition: all 0.3s ease; /* Para transiciones suaves */
+    transform: translateX(-50%);
+    height: 50px;
+    transition: bottom 0.5s ease-in-out;
+    z-index: 100;
 }
 
 .monkey-happy {
-    transform: translateX(-50%) scale(1.2); /* Efecto de salto */
+    animation: monkeyJump 0.3s ease-in-out;
 }
 
-.monkey-sad {
-    transform: translateX(-50%) rotate(-10deg); /* Efecto de caída */
+@keyframes monkeyJump {
+    0% { transform: translateX(-50%) translateY(0); }
+    50% { transform: translateX(-50%) translateY(-10px); }
+    100% { transform: translateX(-50%) translateY(0); }
+}
+
+.monkey-falling {
+    animation: monkeyFall 1.5s ease-in forwards;
+}
+
+@keyframes monkeyFall {
+    0% { transform: translateX(-50%) rotate(0deg); }
+    100% { transform: translateX(-50%) rotate(720deg); }
 }
