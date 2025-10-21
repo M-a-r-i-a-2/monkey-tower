@@ -8,17 +8,19 @@
 </head>
 <body>
   <!-- HUD: puntuación y récords -->
-  <div id="hud">
+  <div id="game-container">
+    <!-- HUD: puntuación y récords -->
+    <div id="hud">
     <h2>Puntuación: <span id="score">0</span></h2>
     <h3>Récord: <span id="highScore">0</span></h3>
     <button id="viewRecords">🏆 Ver récords</button>
   </div>
 
   <!-- Canvas del juego -->
-  <canvas id="gameCanvas" width="400" height="600"></canvas>
+  <canvas id="gameCanvas" width="460" height="720"></canvas>
 
   <!-- Mono -->
-<img id="monkey" src="assets/images/characters/monkey_idle.png" alt="Monkey" style="position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); height: 50px;">
+  <img id="monkey" src="assets/images/characters/monkey_idle.png" alt="Monkey">
   <!-- Game Over -->
   <div id="gameOver" class="hidden">
     <div class="panel">
@@ -39,6 +41,8 @@
       <button id="closeRecords">Cerrar</button>
     </div>
   </div>
+
+  </div> <!-- /#game-container -->
 
   <!-- Matter.js -->
   <script src="https://cdn.jsdelivr.net/npm/matter-js@0.19.0/build/matter.min.js"></script>
