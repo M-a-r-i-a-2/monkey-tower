@@ -16,11 +16,11 @@ body {
 
 #menu-container {
     text-align: center;
-    width: 460px;
+    width: 600px;
     height: 720px;
     margin: 0 auto;
     background-image: url("../assets/images/background/fondo.png");
-    background-position: center center;
+    background-position: center;
     background-size: cover;
     background-repeat: no-repeat;
     background-color: #000;
@@ -34,26 +34,27 @@ body {
 }
 
 .menu-buttons {
+    margin-top: 670px; /* 🔹 ajusta este valor hasta que queden justo donde quieres */
     display: flex;
-    flex-direction: column; /* columna para botones grandes */
     justify-content: center;
     gap: 18px;
     align-items: center;
     width: 100%;
 }
 
+
 button {
     position: relative;
     z-index: 1;
     font-family: 'Luckiest Guy', cursive;
-    font-size: 40px; /* más grande */
+    font-size: 28px; /* 🔹 reducido de 40px a 28px */
     color: #5C4033;
     text-shadow: 2px 2px #EADDCA;
     background-color: #D1B890;
     background-image: url('https://www.transparenttextures.com/patterns/old-paper.png');
     background-repeat: repeat;
     background-size: auto;
-    padding: 18px 36px; /* botones más grandes */
+    padding: 8px 14px; /* 🔹 más compacto */
     cursor: pointer;
     border: none;
     border-radius: 8px;
@@ -62,11 +63,12 @@ button {
     align-items: center;
     justify-content: center;
     transition: transform 0.15s ease-out;
-    min-width: 260px;
+    min-width: 170px; /* 🔹 más angosto */
     background-clip: padding-box;
     backdrop-filter: blur(2px);
     background-color: rgba(209,184,144,0.9);
 }
+
 
 button::after {
     content: '';
