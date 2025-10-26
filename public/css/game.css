@@ -14,10 +14,10 @@ body {
 /* ======== CONTENEDOR DEL JUEGO ======== */
 #game-container {
   position: relative;
-      width: 600px;
-    height: 720px;   /* alto fijo del área de juego */
-  margin: 30px auto;   /* centrar en la pantalla con margen superior */
-  padding: 8px;        /* pequeño padding interior */
+  width: 600px;
+  height: 720px;
+  margin: 30px auto;
+  padding: 8px;
   box-sizing: border-box;
   border-radius: 12px;
   background: rgba(0, 0, 0, 0.22);
@@ -32,7 +32,12 @@ canvas {
   display: block;
   border-radius: 8px;
   border: 3px solid #fff;
-  background: url("../assets/images/background/jungle_day.png") center/cover no-repeat;
+
+  /* --- AJUSTES PARA FONDO INFINITO --- */
+  background: url("../assets/images/background/jungle_day.png");
+  background-repeat: repeat-y;
+  background-size: 100% auto;
+  background-position: 0 0;
 }
 
 /* ======== HUD ======== */
@@ -100,31 +105,43 @@ button:hover {
   background-color: #ffe985;
 }
 
+/* Fixed monkey positioning to be relative to game container */
 #monkey {
   position: absolute;
-  top: auto; /* controlado por JS */
+  bottom: 20px;
   left: 50%;
   transform: translateX(-50%);
   height: 60px;
-  transition: top 0.35s ease-in-out, transform 0.2s ease;
+  transition: bottom 0.5s ease-in-out, left 0.5s ease-in-out;
   z-index: 8;
+  pointer-events: none;
 }
 
 .monkey-happy {
-    animation: monkeyJump 0.3s ease-in-out;
+  animation: monkeyJump 0.3s ease-in-out;
 }
 
 @keyframes monkeyJump {
-    0% { transform: translateX(-50%) translateY(0); }
-    50% { transform: translateX(-50%) translateY(-10px); }
-    100% { transform: translateX(-50%) translateY(0); }
+  0% {
+    transform: translateX(-50%) translateY(0);
+  }
+  50% {
+    transform: translateX(-50%) translateY(-10px);
+  }
+  100% {
+    transform: translateX(-50%) translateY(0);
+  }
 }
 
 .monkey-falling {
-    animation: monkeyFall 1.5s ease-in forwards;
+  animation: monkeyFall 1.5s ease-in forwards;
 }
 
 @keyframes monkeyFall {
-    0% { transform: translateX(-50%) rotate(0deg); }
-    100% { transform: translateX(-50%) rotate(720deg); }
+  0% {
+    transform: translateX(-50%) rotate(0deg);
+  }
+  100% {
+    transform: translateX(-50%) rotate(720deg);
+  }
 }

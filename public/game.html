@@ -7,42 +7,41 @@
   <link rel="stylesheet" href="css/game.css" />
 </head>
 <body>
-  <!-- HUD: puntuación y récords -->
   <div id="game-container">
     <!-- HUD: puntuación y récords -->
     <div id="hud">
-    <h2>Puntuación: <span id="score">0</span></h2>
-    <h3>Récord: <span id="highScore">0</span></h3>
-    <button id="viewRecords">🏆 Ver récords</button>
-  </div>
+      <h2>Puntuación: <span id="score">0</span></h2>
+      <h3>Récord: <span id="highScore">0</span></h3>
+      <button id="viewRecords">🏆 Ver récords</button>
+    </div>
 
-  <!-- Canvas del juego -->
-  <canvas id="gameCanvas" width="460" height="720"></canvas>
+    <!-- Canvas del juego -->
+    <canvas id="gameCanvas" width="460" height="720"></canvas>
 
-  <!-- Mono -->
-  <img id="monkey" src="assets/images/characters/monkey_idle.png" alt="Monkey">
-  <!-- Game Over -->
-  <div id="gameOver" class="hidden">
-    <div class="panel">
-      <h1>🏴‍☠️ ¡La torre colapsó!</h1>
-      <p>Puntaje final: <span id="finalScore"></span></p>
-      <div class="buttons">
-        <button id="retryBtn">Reintentar</button>
-        <button id="menuBtn">Volver al menú</button>
+    <!-- Mono -->
+    <img id="monkey" src="assets/images/characters/monkey_idle.png" alt="Monkey">
+    
+    <!-- Game Over -->
+    <div id="gameOver" class="hidden">
+      <div class="panel">
+        <h1>🏴‍☠️ ¡La torre colapsó!</h1>
+        <p>Puntaje final: <span id="finalScore"></span></p>
+        <div class="buttons">
+          <button id="retryBtn">Reintentar</button>
+          <button id="menuBtn">Volver al menú</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Panel de récords -->
+    <div id="recordsPanel" class="hidden">
+      <div class="panel">
+        <h1>🏆 Récords locales</h1>
+        <ul id="recordsList"></ul>
+        <button id="closeRecords">Cerrar</button>
       </div>
     </div>
   </div>
-
-  <!-- Panel de récords -->
-  <div id="recordsPanel" class="hidden">
-    <div class="panel">
-      <h1>🏆 Récords locales</h1>
-      <ul id="recordsList"></ul>
-      <button id="closeRecords">Cerrar</button>
-    </div>
-  </div>
-
-  </div> <!-- /#game-container -->
 
   <!-- Matter.js -->
   <script src="https://cdn.jsdelivr.net/npm/matter-js@0.19.0/build/matter.min.js"></script>
