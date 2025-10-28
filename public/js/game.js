@@ -97,6 +97,10 @@ const swingSpeed = 0.008
 
 let groundOffset = 0 // Track how much we've moved the ground down
 const moveThreshold = 150 // Move ground when tower gets this close to top
+let cameraFollowEnabled = false // Start following only after 6 placed blocks
+let worldMoveInProgress = false
+let ropeVisualOffset = 0 // Persistent visual offset for the rope anchor (so it stays raised)
+const ropeRaiseFactor = 1 // Factor for how much the rope anchor raise translates into extra rope length (lower = shorter rope)
 
 // Create hanging block
 function createHangingBlock() {
@@ -105,9 +109,9 @@ function createHangingBlock() {
 
   // Lista de texturas disponibles
   const blockTextures = [
-    "/assets/images/blocks/block1.png",
-    "/assets/images/blocks/block2.png",
-    "/assets/images/blocks/block3.png",
+    "assets/images/blocks/block1.png",
+    "assets/images/blocks/block2.png",
+    "assets/images/blocks/block3.png",
   ];
 
   // Selecciona una textura al azar
@@ -130,12 +134,15 @@ function createHangingBlock() {
   });
 
   const rope = Constraint.create({
-    pointA: { x: width / 2, y: 50 + groundOffset },
+    pointA: { x: width / 2, y: 50 + groundOffset - ropeVisualOffset },
     bodyB: block,
+    // Use the original rope length so the rope stays recortada (short) as at start
     length: ropeLength,
     stiffness: 1,
     render: { strokeStyle: "#8B4513", lineWidth: 2 },
   });
+  // store original length for future reference
+  rope.originalLength = ropeLength;
 
   block.rope = rope;
   block.swingAngle = 0.5;
@@ -172,6 +179,7 @@ function animateRopeSwing() {
 
 function checkAndMoveWorld() {
   if (placedBlocks.length === 0) return
+  if (!cameraFollowEnabled) return
 
   // Find highest block
   const highestBlock = placedBlocks.reduce((highest, block) => {
@@ -180,32 +188,61 @@ function checkAndMoveWorld() {
 
   // If tower is getting too close to top, move everything down
   if (highestBlock.position.y < moveThreshold) {
-    const moveAmount = 200 // Move everything down by this amount
-    groundOffset += moveAmount
+    performWorldMove(200)
+  }
+}
+
+// Move the physical world down and the DOM monkey up by moveAmount
+function performWorldMove(moveAmount, duration = 400) {
+  // If already moving the world, ignore new requests
+  if (worldMoveInProgress) return
+  worldMoveInProgress = true
+
+  const frameMs = 16
+  const steps = Math.max(1, Math.ceil(duration / frameMs))
+  const perStep = moveAmount / steps
+  let moved = 0
+
+  const intervalId = setInterval(() => {
+    const remaining = moveAmount - moved
+    const step = Math.min(perStep, remaining)
+
+    // Update offsets and translate bodies by small step
+    groundOffset += step
 
     // Move ground
-    Body.setPosition(ground, {
-      x: ground.position.x,
-      y: ground.position.y + moveAmount,
-    })
+    Body.translate(ground, { x: 0, y: step })
 
     // Move all placed blocks
     placedBlocks.forEach((block) => {
-      Body.setPosition(block, {
-        x: block.position.x,
-        y: block.position.y + moveAmount,
-      })
+      Body.translate(block, { x: 0, y: step })
     })
 
     // Move current swinging block and its rope anchor
     if (currentBlock && currentBlock.rope) {
-      currentBlock.rope.pointA.y += moveAmount
-      Body.setPosition(currentBlock, {
-        x: currentBlock.position.x,
-        y: currentBlock.position.y + moveAmount,
-      })
+      // Increase persistent visual offset so the anchor stays raised permanently
+  const delta = step * ropeRaiseFactor
+  ropeVisualOffset += delta
+      const anchorY = 50 + groundOffset - ropeVisualOffset
+      currentBlock.rope.pointA.y = anchorY
+      Body.translate(currentBlock, { x: 0, y: step })
     }
-  }
+
+    // Also move the monkey DOM element up so the camera appears to follow
+    try {
+      const computed = window.getComputedStyle(monkey)
+      const currentBottom = parseInt(computed.bottom, 10) || 0
+      monkey.style.bottom = `${currentBottom + step}px`
+    } catch (err) {
+      // ignore if monkey element isn't available or style can't be read
+    }
+
+    moved += step
+    if (moved >= moveAmount - 0.001) {
+      clearInterval(intervalId)
+      worldMoveInProgress = false
+    }
+  }, frameMs)
 }
 
 function spawnBlock() {
@@ -321,6 +358,15 @@ function dropBlock() {
 
     Body.setStatic(currentBlock, true)
     placedBlocks.push(currentBlock)
+    // Enable camera follow once we've reached at least 6 blocks
+    if (placedBlocks.length >= 6) {
+      cameraFollowEnabled = true
+    }
+
+    // Every time we've placed another set of 6 blocks, trigger a camera/world move
+    if (placedBlocks.length % 6 === 0) {
+      performWorldMove(200)
+    }
     moveMonkeyToCurrentBlock()
 
     score++
