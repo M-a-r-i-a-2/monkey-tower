@@ -54,6 +54,18 @@ viewRecordsBtn.addEventListener("click", () => {
     optionsPanel.classList.add("hidden");
     recordsPanel.classList.remove("hidden");
 });
+    const bgMusic = new Audio('assets/sounds/music.mp3');
+    bgMusic.loop = true;
+    bgMusic.volume = 0.5;
+    document.addEventListener('DOMContentLoaded', () => {
+      bgMusic.play();
+    });
+
+    if (volumeSlider) {
+      volumeSlider.addEventListener('input', (e) => {
+         bgMusic.volume = Number(e.target.value);
+      });
+    }
 
 
 // 4. ¡NUEVO! Lógica para cerrar el panel de opciones

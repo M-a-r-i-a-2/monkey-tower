@@ -14,33 +14,50 @@ body {
     overflow: hidden;
 }
 
-#menu-container {
-    text-align: center;
+/* Contenedor general (video + menú) */
+#game-wrapper {
+    position: relative; /* 🔹 Necesario para que todo se ubique dentro */
     width: 600px;
     height: 720px;
     margin: 0 auto;
-    background-image: url("../assets/images/background/fondo.png");
-    background-position: center;
-    background-size: cover;
-    background-repeat: no-repeat;
-    background-color: #000;
+    overflow: hidden;
     border-radius: 10px;
-    box-shadow: 0 12px 30px rgba(0,0,0,0.6);
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    padding: 24px;
 }
 
+/* Video de fondo */
+#bg-video {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    z-index: -1;
+}
+
+/* Contenedor del menú */
+#menu-container {
+    position: relative; /* 🔹 Contenedor base para los botones */
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end; /* 🔹 Empuja los botones hacia abajo */
+    align-items: center;
+    padding-bottom: 30px; /* 🔹 Separación del borde inferior */
+}
+
+/* Botones */
 .menu-buttons {
-    margin-top: 670px; /* 🔹 ajusta este valor hasta que queden justo donde quieres */
     display: flex;
     justify-content: center;
-    gap: 18px;
     align-items: center;
-    width: 100%;
+    gap: 18px;
+    width: auto;
+    padding-bottom: 20px;
 }
+
+
 
 
 button {

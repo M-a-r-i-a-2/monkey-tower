@@ -10,13 +10,20 @@
     <link href="https://fonts.googleapis.com/css2?family=Luckiest+Guy&display=swap" rel="stylesheet">
 </head>
 <body>
-    <div id="menu-container">
-        <div class="menu-buttons">
-            <button id="play-btn">JUGAR</button>
-            <button id="options-btn">OPCIONES</button>
-            <button id="exit-btn">SALIR</button>
+        <!-- Video de fondo ajustado al contenedor -->
+        <div style="position:relative;width:600px;height:720px;margin:0 auto;">
+            <video id="bg-video" autoplay loop muted playsinline style="position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;z-index:-1;">
+                    <source src="assets/videos/fondo.mp4" type="video/mp4">
+                    Tu navegador no soporta video HTML5.
+            </video>
+            <div id="menu-container">
+                <div class="menu-buttons">
+                        <button id="play-btn">JUGAR</button>
+                        <button id="options-btn">OPCIONES</button>
+                        <button id="exit-btn">SALIR</button>
+                </div>
+            </div>
         </div>
-    </div>
 
     <div id="optionsPanel" class="hidden">
         <div class="panel">
@@ -30,8 +37,8 @@
 
             <div class="option-section">
                 <h2>Volumen del Juego</h2>
-                <label for="volume-slider">Maestro:</label>
-                <input type="range" id="volume-slider" min="0" max="100" value="75">
+                <label for="volumeSlider">Música:</label>
+                <input type="range" id="volumeSlider" min="0" max="1" step="0.01" value="0.5">
             </div>
             
             <div class="panel-buttons">

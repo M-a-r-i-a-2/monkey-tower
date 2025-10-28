@@ -1,4 +1,11 @@
 // Import Matter.js library
+// Música de fondo
+const bgMusic = new Audio('assets/sounds/music.mp3');
+bgMusic.loop = true;
+bgMusic.volume = 0.5;
+document.addEventListener('DOMContentLoaded', () => {
+  bgMusic.play();
+});
 const Matter = window.Matter
 const { Engine, Render, Runner, Bodies, Composite, Events, World, Constraint, Body } = Matter
 const canvas = document.getElementById("gameCanvas")
@@ -9,6 +16,7 @@ const gameOverScreen = document.getElementById("gameOver")
 const finalScore = document.getElementById("finalScore")
 const retryBtn = document.getElementById("retryBtn")
 const menuBtn = document.getElementById("menuBtn")
+const volumeSlider = document.getElementById("volumeSlider")
 const recordsPanel = document.getElementById("recordsPanel")
 const viewRecordsBtn = document.getElementById("viewRecords")
 const closeRecordsBtn = document.getElementById("closeRecords")
@@ -279,25 +287,67 @@ Events.on(engine, "beforeUpdate", () => {
   checkAndMoveWorld()
 })
 
+function animateCameraFall(moveAmount = 300, duration = 700, callback) {
+  // Animate camera down (move everything up visually)
+  if (worldMoveInProgress) return
+  worldMoveInProgress = true
+  const frameMs = 16
+  const steps = Math.max(1, Math.ceil(duration / frameMs))
+  const perStep = moveAmount / steps
+  let moved = 0
+
+  const intervalId = setInterval(() => {
+    const remaining = moveAmount - moved
+    const step = Math.min(perStep, remaining)
+  groundOffset -= step
+  // No mover el piso (ground) en la animación de caída
+    placedBlocks.forEach((block) => {
+      Body.translate(block, { x: 0, y: -step })
+    })
+    if (currentBlock && currentBlock.rope) {
+      currentBlock.rope.pointA.y += step
+      Body.translate(currentBlock, { x: 0, y: -step })
+    }
+    try {
+      const computed = window.getComputedStyle(monkey)
+      const currentBottom = parseInt(computed.bottom, 10) || 0
+      monkey.style.bottom = `${currentBottom - step}px`
+    } catch (err) {}
+    moved += step
+    if (moved >= moveAmount - 0.001) {
+      clearInterval(intervalId)
+      worldMoveInProgress = false
+      if (callback) callback()
+    }
+  }, frameMs)
+}
+
 function makeTowerFall() {
   if (towerFalling) return
   towerFalling = true
 
   placedBlocks.forEach((block, index) => {
     Body.setStatic(block, false)
-
     const wobbleForce = 0.002 + index * 0.0003
     const direction = Math.random() > 0.5 ? 1 : -1
-
     Body.applyForce(block, block.position, {
       x: wobbleForce * direction,
       y: 0,
     })
-
     Body.setAngularVelocity(block, (Math.random() - 0.5) * 0.1)
   })
 
-  endGame()
+  // Calcular cuánto debe bajar la cámara para mostrar la caída hasta el piso
+  // Encuentra el bloque más bajo
+  const lowestBlock = placedBlocks.reduce((lowest, block) => {
+    return block.position.y > lowest.position.y ? block : lowest
+  }, placedBlocks[0])
+  // El piso está en ground.position.y
+  const distanceToGround = ground.position.y - lowestBlock.position.y
+  // Deja un margen visual (p.ej. 40px)
+  const moveAmount = Math.max(0, distanceToGround - 40)
+  // Si la torre ya está cerca del piso, usa al menos 100px para el efecto
+  animateCameraFall(Math.max(moveAmount, 100), 700, endGame)
 }
 
 function checkBlockPlacement(block) {
@@ -416,7 +466,15 @@ document.addEventListener("keydown", (e) => {
 
 canvas.addEventListener("click", dropBlock)
 retryBtn.addEventListener("click", () => window.location.reload())
-menuBtn.addEventListener("click", () => alert("Menu not implemented"))
+menuBtn.addEventListener("click", () => {
+  document.getElementById('optionsPanel').classList.remove('hidden');
+})
+
+if (volumeSlider) {
+  volumeSlider.addEventListener('input', (e) => {
+    bgMusic.volume = Number(e.target.value);
+  });
+}
 
 function initializeMonkey() {
   monkey.style.position = "absolute"
