@@ -12,7 +12,7 @@ const recordsList = document.getElementById("recordsList");
 const optionsPanel = document.getElementById("optionsPanel");
 const closeOptions = document.getElementById("closeOptions");
 const viewRecordsBtn = document.getElementById("view-records-btn");
-const volumeSlider = document.getElementById("volume-slider");
+const volumeSlider = document.getElementById("volumeSlider");
 
 
 // --- Lógica de los Botones ---
@@ -54,18 +54,30 @@ viewRecordsBtn.addEventListener("click", () => {
     optionsPanel.classList.add("hidden");
     recordsPanel.classList.remove("hidden");
 });
-    const bgMusic = new Audio('assets/sounds/music.mp3');
-    bgMusic.loop = true;
-    bgMusic.volume = 0.5;
-    document.addEventListener('DOMContentLoaded', () => {
-      bgMusic.play();
-    });
+const bgMusic = new Audio('assets/sounds/music.mp3');
+bgMusic.loop = true;
+// load saved volume or default
+const savedVolume = localStorage.getItem('musicVolume');
+bgMusic.volume = savedVolume !== null ? Number(savedVolume) : 0.5;
 
-    if (volumeSlider) {
-      volumeSlider.addEventListener('input', (e) => {
-         bgMusic.volume = Number(e.target.value);
-      });
-    }
+// try to play music — browsers may block autoplay, so this will often succeed after a user gesture
+function tryPlayBgMusic() {
+    bgMusic.play().catch(() => {})
+    document.removeEventListener('click', tryPlayBgMusic)
+    document.removeEventListener('keydown', tryPlayBgMusic)
+}
+document.addEventListener('click', tryPlayBgMusic)
+document.addEventListener('keydown', tryPlayBgMusic)
+
+if (volumeSlider) {
+    // initialize slider value
+    volumeSlider.value = bgMusic.volume;
+    volumeSlider.addEventListener('input', (e) => {
+        const v = Number(e.target.value)
+        bgMusic.volume = v;
+        localStorage.setItem('musicVolume', String(v));
+    });
+}
 
 
 // 4. ¡NUEVO! Lógica para cerrar el panel de opciones

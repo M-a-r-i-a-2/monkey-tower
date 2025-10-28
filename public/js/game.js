@@ -1,11 +1,22 @@
 // Import Matter.js library
-// Música de fondo
+// Música de fondo (se inicia tras la primera interacción del usuario)
 const bgMusic = new Audio('assets/sounds/music.mp3');
 bgMusic.loop = true;
-bgMusic.volume = 0.5;
-document.addEventListener('DOMContentLoaded', () => {
-  bgMusic.play();
-});
+const savedVolume = localStorage.getItem('musicVolume');
+bgMusic.volume = savedVolume !== null ? Number(savedVolume) : 0.5;
+
+// Sonido de fallo (torre caída)
+const failSfx = new Audio('assets/sounds/falled.mp3');
+failSfx.preload = 'auto';
+failSfx.volume = savedVolume !== null ? Number(savedVolume) : 0.5;
+
+function playBgMusicOnFirstInteraction() {
+  bgMusic.play().catch(() => {})
+  document.removeEventListener('click', playBgMusicOnFirstInteraction)
+  document.removeEventListener('keydown', playBgMusicOnFirstInteraction)
+}
+document.addEventListener('click', playBgMusicOnFirstInteraction)
+document.addEventListener('keydown', playBgMusicOnFirstInteraction)
 const Matter = window.Matter
 const { Engine, Render, Runner, Bodies, Composite, Events, World, Constraint, Body } = Matter
 const canvas = document.getElementById("gameCanvas")
@@ -336,6 +347,12 @@ function makeTowerFall() {
     })
     Body.setAngularVelocity(block, (Math.random() - 0.5) * 0.1)
   })
+  
+    // Reproducir sonido de fallo al comenzar la caída
+    try {
+      failSfx.currentTime = 0
+      failSfx.play().catch(() => {})
+    } catch (e) {}
 
   // Calcular cuánto debe bajar la cámara para mostrar la caída hasta el piso
   // Encuentra el bloque más bajo
