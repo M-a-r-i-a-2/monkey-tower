@@ -32,6 +32,13 @@ const recordsPanel = document.getElementById("recordsPanel")
 const viewRecordsBtn = document.getElementById("viewRecords")
 const closeRecordsBtn = document.getElementById("closeRecords")
 const recordsList = document.getElementById("recordsList")
+const settingsBtn = document.getElementById('settingsBtn')
+const inGameSettings = document.getElementById('inGameSettings')
+const igVolumeSlider = document.getElementById('igVolumeSlider')
+const sfxVolumeSlider = document.getElementById('sfxVolumeSlider')
+const igCloseSettings = document.getElementById('igCloseSettings')
+const igMenuBtn = document.getElementById('igMenuBtn')
+const igQuitBtn = document.getElementById('igQuitBtn')
 
 const width = canvas.width
 const height = canvas.height
@@ -483,14 +490,66 @@ document.addEventListener("keydown", (e) => {
 
 canvas.addEventListener("click", dropBlock)
 retryBtn.addEventListener("click", () => window.location.reload())
+// Al pulsar 'Volver al menú' en la pantalla de juego, vamos al menú principal.
+// No abrimos el panel de opciones aquí para que las opciones solo se muestren
+// cuando el jugador haga click en la tuerca (settingsBtn).
 menuBtn.addEventListener("click", () => {
-  document.getElementById('optionsPanel').classList.remove('hidden');
+  window.location.href = 'index.html'
 })
 
 if (volumeSlider) {
   volumeSlider.addEventListener('input', (e) => {
     bgMusic.volume = Number(e.target.value);
   });
+}
+
+// In-game settings handlers
+if (settingsBtn && inGameSettings) {
+  settingsBtn.addEventListener('click', () => {
+    inGameSettings.classList.toggle('hidden')
+  })
+}
+
+if (igCloseSettings) {
+  igCloseSettings.addEventListener('click', () => {
+    inGameSettings.classList.add('hidden')
+  })
+}
+
+
+// init sliders
+if (igVolumeSlider) {
+  const saved = localStorage.getItem('musicVolume')
+  igVolumeSlider.value = saved !== null ? saved : bgMusic.volume
+  igVolumeSlider.addEventListener('input', (e) => {
+    const v = Number(e.target.value)
+    bgMusic.volume = v
+    localStorage.setItem('musicVolume', String(v))
+  })
+}
+if (sfxVolumeSlider) {
+  const savedSfx = localStorage.getItem('sfxVolume')
+  sfxVolumeSlider.value = savedSfx !== null ? savedSfx : failSfx.volume
+  sfxVolumeSlider.addEventListener('input', (e) => {
+    const v = Number(e.target.value)
+    failSfx.volume = v
+    localStorage.setItem('sfxVolume', String(v))
+  })
+}
+
+if (igMenuBtn) {
+  igMenuBtn.addEventListener('click', () => {
+    // show game over screen then redirect to menu
+    endGame()
+    setTimeout(() => { window.location.href = 'index.html' }, 1200)
+  })
+}
+
+if (igQuitBtn) {
+  igQuitBtn.addEventListener('click', () => {
+    // show game over screen (like when you lose)
+    endGame()
+  })
 }
 
 function initializeMonkey() {
