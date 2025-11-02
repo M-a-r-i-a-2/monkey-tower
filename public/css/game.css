@@ -131,9 +131,14 @@ button:hover {
   position: absolute;
   bottom: 20px;
   left: 50%;
-  transform: translateX(-50%);
-  height: 60px;
-  transition: bottom 0.5s ease-in-out, left 0.5s ease-in-out;
+  /* Empuja ligeramente el sprite hacia el bloque y súbelo un poco para simular agarre */
+  transform: translateX(calc(-50% - 6px)) translateY(-4px);
+  height: 56px; /* un poco más compacto para aparentar pegado */
+  width: 56px;
+  background-image: url("../assets/images/characters/monkey_sprites.png");
+  background-size: 300% 400%; /* 3x4 grid */
+  background-position: 0% 0%; /* Start with idle frame */
+  transition: bottom 0.5s ease-in-out, left 0.5s ease-in-out, transform 0.2s ease;
   z-index: 8;
   pointer-events: none;
 }
@@ -165,4 +170,30 @@ button:hover {
   100% {
     transform: translateX(-50%) rotate(720deg);
   }
+}
+
+.monkey-climbing {
+  animation: monkeyClimb 0.5s steps(3) infinite;
+  /* Mientras trepa, acércalo aún más hacia el bloque */
+  transform: translateX(calc(-50% - 10px)) translateY(-6px);
+}
+
+@keyframes monkeyClimb {
+  0% {
+    background-position: 0% 0%;
+  }
+  33.33% {
+    background-position: -100% 0%;
+  }
+  66.66% {
+    background-position: -200% 0%;
+  }
+  100% {
+    background-position: 0% 0%;
+  }
+}
+
+/* Utilidad opcional por si se quiere forzar el efecto de trepado permanente */
+.monkey-grabbed {
+  transform: translateX(calc(-50% - 10px)) translateY(-6px);
 }

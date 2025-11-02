@@ -121,26 +121,23 @@ let towerFalling = false
 let swingDirection = 1
 const swingSpeed = 0.008
 
-let groundOffset = 0 // Track how much we've moved the ground down
-const moveThreshold = 150 // Move ground when tower gets this close to top
-let cameraFollowEnabled = false // Start following only after 6 placed blocks
+let groundOffset = 0
+const moveThreshold = 150
+let cameraFollowEnabled = false
 let worldMoveInProgress = false
-let ropeVisualOffset = 0 // Persistent visual offset for the rope anchor (so it stays raised)
-const ropeRaiseFactor = 1 // Factor for how much the rope anchor raise translates into extra rope length (lower = shorter rope)
+let ropeVisualOffset = 0
+const ropeRaiseFactor = 1
 
 // Create hanging block
 function createHangingBlock() {
   const ropeLength = Math.max(120 - score * 2.5, 60);
   const startX = width / 2 + 100;
 
-  // Lista de texturas disponibles
   const blockTextures = [
     "assets/images/blocks/block1.png",
     "assets/images/blocks/block2.png",
     "assets/images/blocks/block3.png",
   ];
-
-  // Selecciona una textura al azar
   const randomTexture = blockTextures[Math.floor(Math.random() * blockTextures.length)];
 
   const block = Bodies.rectangle(startX, ropeLength + 50 + groundOffset, 50, 50, {
@@ -149,35 +146,43 @@ function createHangingBlock() {
     frictionStatic: 1.5,
     density: 0.5,
     render: {
-      fillStyle: "#73F84B",
-      sprite: {
-        texture: randomTexture,
-        xScale: 0.5,
-        yScale: 0.5,
-      },
+      sprite: { texture: randomTexture, xScale: 0.5, yScale: 0.5 },
     },
     label: "block",
   });
 
+  // Mantener el ancla SIEMPRE fija en la parte superior de la pantalla (y = 50)
   const rope = Constraint.create({
-    pointA: { x: width / 2, y: 50 + groundOffset - ropeVisualOffset },
+    pointA: { x: width / 2, y: 50 },
     bodyB: block,
-    // Use the original rope length so the rope stays recortada (short) as at start
     length: ropeLength,
     stiffness: 1,
-    render: { strokeStyle: "#8B4513", lineWidth: 2 },
+    render: { visible: true },
   });
-  // store original length for future reference
-  rope.originalLength = ropeLength;
 
+  rope.originalLength = ropeLength;
   block.rope = rope;
-  block.swingAngle = 0.5;
+
+  // Ángulo inicial hacia la derecha
+  const startAngle = 0.5; // radianes
+  block.swingAngle = startAngle;
+
+  // Sincroniza la posición del bloque con ese ángulo respecto al ancla fija
+  const offsetX = Math.sin(startAngle) * ropeLength;
+  const offsetY = Math.cos(startAngle) * ropeLength;
+  Body.setPosition(block, {
+    x: rope.pointA.x + offsetX,
+    y: rope.pointA.y + offsetY,
+  });
+
+  // Si a partir de 21 cajas colocadas, los próximos bloques deben girar mientras se balancean
+  block.shouldSpinWhileSwing = placedBlocks.length >= 21;
+
   World.add(world, [block, rope]);
   return block;
 }
 
 
-// Animate rope swing
 function animateRopeSwing() {
   if (!currentBlock || !currentBlock.rope || gameOver) return
 
@@ -201,26 +206,30 @@ function animateRopeSwing() {
 
   Body.setPosition(currentBlock, { x: newX, y: newY })
   Body.setVelocity(currentBlock, { x: 0, y: 0 })
+
+  // A partir de 21 cajas colocadas, el bloque en la cuerda rota mientras se balancea
+  if (currentBlock.shouldSpinWhileSwing) {
+    // velocidad angular suave dependiente del sentido del balanceo
+    Body.setAngularVelocity(currentBlock, 0.08 * swingDirection)
+  } else {
+    Body.setAngularVelocity(currentBlock, 0)
+  }
 }
 
 function checkAndMoveWorld() {
   if (placedBlocks.length === 0) return
   if (!cameraFollowEnabled) return
 
-  // Find highest block
   const highestBlock = placedBlocks.reduce((highest, block) => {
     return block.position.y < highest.position.y ? block : highest
   }, placedBlocks[0])
 
-  // If tower is getting too close to top, move everything down
   if (highestBlock.position.y < moveThreshold) {
     performWorldMove(200)
   }
 }
 
-// Move the physical world down and the DOM monkey up by moveAmount
 function performWorldMove(moveAmount, duration = 400) {
-  // If already moving the world, ignore new requests
   if (worldMoveInProgress) return
   worldMoveInProgress = true
 
@@ -233,29 +242,23 @@ function performWorldMove(moveAmount, duration = 400) {
     const remaining = moveAmount - moved
     const step = Math.min(perStep, remaining)
 
-    // Update offsets and translate bodies by small step
     groundOffset += step
 
-    // Move ground
     Body.translate(ground, { x: 0, y: step })
 
-    // Move all placed blocks
     placedBlocks.forEach((block) => {
       Body.translate(block, { x: 0, y: step })
     })
 
-    // Move current swinging block and its rope anchor
+    // Mantener el ancla de la cuerda fija en y=50; solo trasladar el bloque visualmente con el mundo
     if (currentBlock && currentBlock.rope) {
-      // Increase persistent visual offset so the anchor stays raised permanently
-  const delta = step * ropeRaiseFactor
-  ropeVisualOffset += delta
-      const anchorY = 50 + groundOffset - ropeVisualOffset
-      currentBlock.rope.pointA.y = anchorY
       Body.translate(currentBlock, { x: 0, y: step })
+      // punto A permanece en (x, 50)
+      currentBlock.rope.pointA.x = width / 2
+      currentBlock.rope.pointA.y = 50
     }
 
-    // Also move the monkey DOM element up so the camera appears to follow
-    try {
+     try {
       const computed = window.getComputedStyle(monkey)
       const currentBottom = parseInt(computed.bottom, 10) || 0
       monkey.style.bottom = `${currentBottom + step}px`
@@ -267,6 +270,9 @@ function performWorldMove(moveAmount, duration = 400) {
     if (moved >= moveAmount - 0.001) {
       clearInterval(intervalId)
       worldMoveInProgress = false
+      performWorldMove._snapActive = false
+      performWorldMove._snapAnchor = null
+      performWorldMove._snapOffset = 0
     }
   }, frameMs)
 }
@@ -279,25 +285,30 @@ function spawnBlock() {
 function moveMonkeyToCurrentBlock() {
   if (!currentBlock) return
 
-  const blockHeight = 20
+  const blockHeight = 0
   const monkeyHeight = 50
+  const contactPadding = -16
+  const horizontalNudge = 0
 
   const blockY = currentBlock.position.y
   const blockX = currentBlock.position.x
 
-  const newBottom = height - blockY - blockHeight / 2 + monkeyHeight / 2
-  const newLeft = blockX
+  const newBottom = height - blockY - blockHeight / 2 + monkeyHeight / 2 + contactPadding
+  const newLeft = blockX + horizontalNudge
+
+  monkey.classList.add("monkey-climbing")
 
   monkey.style.transition = "bottom 0.5s ease-in-out, left 0.5s ease-in-out"
   monkey.style.bottom = `${newBottom}px`
   monkey.style.left = `${newLeft}px`
 
   setTimeout(() => {
-    monkey.style.transform = "translateX(-50%) scale(1.1)"
+    monkey.style.transform = "translateX(-50%) scale(1.05)"
     setTimeout(() => {
       monkey.style.transform = "translateX(-50%) scale(1)"
-    }, 100)
-  }, 250)
+      monkey.classList.remove("monkey-climbing")
+    }, 120)
+  }, 220)
 }
 
 Events.on(engine, "beforeUpdate", () => {
@@ -306,7 +317,6 @@ Events.on(engine, "beforeUpdate", () => {
 })
 
 function animateCameraFall(moveAmount = 300, duration = 700, callback) {
-  // Animate camera down (move everything up visually)
   if (worldMoveInProgress) return
   worldMoveInProgress = true
   const frameMs = 16
@@ -317,24 +327,32 @@ function animateCameraFall(moveAmount = 300, duration = 700, callback) {
   const intervalId = setInterval(() => {
     const remaining = moveAmount - moved
     const step = Math.min(perStep, remaining)
-  groundOffset -= step
-  // No mover el piso (ground) en la animación de caída
+    groundOffset -= step
+
     placedBlocks.forEach((block) => {
       Body.translate(block, { x: 0, y: -step })
     })
     if (currentBlock && currentBlock.rope) {
-      currentBlock.rope.pointA.y += step
+      // Mantener ancla fija
+      currentBlock.rope.pointA.x = width / 2
+      currentBlock.rope.pointA.y = 50
       Body.translate(currentBlock, { x: 0, y: -step })
     }
     try {
-      const computed = window.getComputedStyle(monkey)
-      const currentBottom = parseInt(computed.bottom, 10) || 0
-      monkey.style.bottom = `${currentBottom - step}px`
+      if (!animateCameraFall._startMonkeyBottomCaptured) {
+        const computed = window.getComputedStyle(monkey)
+        animateCameraFall._startMonkeyBottom = parseInt(computed.bottom, 10) || 0
+        animateCameraFall._movedAccum = 0
+        animateCameraFall._startMonkeyBottomCaptured = true
+      }
+      animateCameraFall._movedAccum += step
+      monkey.style.bottom = `${animateCameraFall._startMonkeyBottom - animateCameraFall._movedAccum}px`
     } catch (err) {}
     moved += step
     if (moved >= moveAmount - 0.001) {
       clearInterval(intervalId)
       worldMoveInProgress = false
+      animateCameraFall._startMonkeyBottomCaptured = false
       if (callback) callback()
     }
   }, frameMs)
@@ -355,22 +373,16 @@ function makeTowerFall() {
     Body.setAngularVelocity(block, (Math.random() - 0.5) * 0.1)
   })
   
-    // Reproducir sonido de fallo al comenzar la caída
-    try {
-      failSfx.currentTime = 0
-      failSfx.play().catch(() => {})
-    } catch (e) {}
+  try {
+    failSfx.currentTime = 0
+    failSfx.play().catch(() => {})
+  } catch (e) {}
 
-  // Calcular cuánto debe bajar la cámara para mostrar la caída hasta el piso
-  // Encuentra el bloque más bajo
   const lowestBlock = placedBlocks.reduce((lowest, block) => {
     return block.position.y > lowest.position.y ? block : lowest
   }, placedBlocks[0])
-  // El piso está en ground.position.y
   const distanceToGround = ground.position.y - lowestBlock.position.y
-  // Deja un margen visual (p.ej. 40px)
   const moveAmount = Math.max(0, distanceToGround - 40)
-  // Si la torre ya está cerca del piso, usa al menos 100px para el efecto
   animateCameraFall(Math.max(moveAmount, 100), 700, endGame)
 }
 
@@ -432,13 +444,28 @@ function dropBlock() {
 
     Body.setStatic(currentBlock, true)
     placedBlocks.push(currentBlock)
-    // Enable camera follow once we've reached at least 6 blocks
+    
     if (placedBlocks.length >= 6) {
       cameraFollowEnabled = true
     }
 
-    // Every time we've placed another set of 6 blocks, trigger a camera/world move
     if (placedBlocks.length % 6 === 0) {
+      const anchor = placedBlocks[placedBlocks.length - 1]
+      try {
+        const computed = window.getComputedStyle(monkey)
+        const currentBottom = parseInt(computed.bottom, 10) || 0
+        const blockHeight = 0
+        const monkeyHeight = 50
+        const contactPadding = -16
+        const baseBottom = height - anchor.position.y - blockHeight / 2 + monkeyHeight / 2 + contactPadding
+        performWorldMove._snapActive = true
+        performWorldMove._snapAnchor = anchor
+        performWorldMove._snapOffset = currentBottom - baseBottom
+      } catch (e) {
+        performWorldMove._snapActive = false
+        performWorldMove._snapAnchor = null
+        performWorldMove._snapOffset = 0
+      }
       performWorldMove(200)
     }
     moveMonkeyToCurrentBlock()
@@ -449,7 +476,7 @@ function dropBlock() {
     updateBackground()
 
     spawnBlock()
-  }, 600) // Increased from 500ms to 600ms
+  }, 600)
 }
 
 function monkeyHappy() {
@@ -490,9 +517,6 @@ document.addEventListener("keydown", (e) => {
 
 canvas.addEventListener("click", dropBlock)
 retryBtn.addEventListener("click", () => window.location.reload())
-// Al pulsar 'Volver al menú' en la pantalla de juego, vamos al menú principal.
-// No abrimos el panel de opciones aquí para que las opciones solo se muestren
-// cuando el jugador haga click en la tuerca (settingsBtn).
 menuBtn.addEventListener("click", () => {
   window.location.href = 'index.html'
 })
@@ -503,7 +527,6 @@ if (volumeSlider) {
   });
 }
 
-// In-game settings handlers
 if (settingsBtn && inGameSettings) {
   settingsBtn.addEventListener('click', () => {
     inGameSettings.classList.toggle('hidden')
@@ -516,8 +539,6 @@ if (igCloseSettings) {
   })
 }
 
-
-// init sliders
 if (igVolumeSlider) {
   const saved = localStorage.getItem('musicVolume')
   igVolumeSlider.value = saved !== null ? saved : bgMusic.volume
@@ -539,7 +560,6 @@ if (sfxVolumeSlider) {
 
 if (igMenuBtn) {
   igMenuBtn.addEventListener('click', () => {
-    // show game over screen then redirect to menu
     endGame()
     setTimeout(() => { window.location.href = 'index.html' }, 1200)
   })
@@ -547,7 +567,6 @@ if (igMenuBtn) {
 
 if (igQuitBtn) {
   igQuitBtn.addEventListener('click', () => {
-    // show game over screen (like when you lose)
     endGame()
   })
 }
