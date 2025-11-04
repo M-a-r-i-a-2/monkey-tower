@@ -1,44 +1,10 @@
+/**
+ * @file Contiene la lógica principal del juego, el motor de físicas y el renderizado.
+ */
+
 // Import Matter.js library
-// Música de fondo (se inicia tras la primera interacción del usuario)
-const bgMusic = new Audio('assets/sounds/music.mp3');
-bgMusic.loop = true;
-const savedVolume = localStorage.getItem('musicVolume');
-bgMusic.volume = savedVolume !== null ? Number(savedVolume) : 0.5;
-
-// Sonido de fallo (torre caída)
-const failSfx = new Audio('assets/sounds/falled.mp3');
-failSfx.preload = 'auto';
-failSfx.volume = savedVolume !== null ? Number(savedVolume) : 0.5;
-
-function playBgMusicOnFirstInteraction() {
-  bgMusic.play().catch(() => {})
-  document.removeEventListener('click', playBgMusicOnFirstInteraction)
-  document.removeEventListener('keydown', playBgMusicOnFirstInteraction)
-}
-document.addEventListener('click', playBgMusicOnFirstInteraction)
-document.addEventListener('keydown', playBgMusicOnFirstInteraction)
 const Matter = window.Matter
 const { Engine, Render, Runner, Bodies, Composite, Events, World, Constraint, Body } = Matter
-const canvas = document.getElementById("gameCanvas")
-const monkey = document.getElementById("monkey")
-const scoreDisplay = document.getElementById("score")
-const highScoreDisplay = document.getElementById("highScore")
-const gameOverScreen = document.getElementById("gameOver")
-const finalScore = document.getElementById("finalScore")
-const retryBtn = document.getElementById("retryBtn")
-const menuBtn = document.getElementById("menuBtn")
-const volumeSlider = document.getElementById("volumeSlider")
-const recordsPanel = document.getElementById("recordsPanel")
-const viewRecordsBtn = document.getElementById("viewRecords")
-const closeRecordsBtn = document.getElementById("closeRecords")
-const recordsList = document.getElementById("recordsList")
-const settingsBtn = document.getElementById('settingsBtn')
-const inGameSettings = document.getElementById('inGameSettings')
-const igVolumeSlider = document.getElementById('igVolumeSlider')
-const sfxVolumeSlider = document.getElementById('sfxVolumeSlider')
-const igCloseSettings = document.getElementById('igCloseSettings')
-const igMenuBtn = document.getElementById('igMenuBtn')
-const igQuitBtn = document.getElementById('igQuitBtn')
 
 const width = canvas.width
 const height = canvas.height
@@ -111,45 +77,6 @@ const ground = Bodies.rectangle(width / 2, height - 10, width, 20, {
 })
 World.add(world, ground)
 
-// Score
-let score = 0
-let highScore = Number.parseInt(localStorage.getItem("highScore")) || 0
-highScoreDisplay.textContent = highScore
-
-function updateHighScore(newScore) {
-  if (newScore > highScore) {
-    highScore = newScore
-    localStorage.setItem("highScore", highScore)
-    highScoreDisplay.textContent = highScore
-    saveRecord(newScore)
-  }
-}
-
-function saveRecord(newScore) {
-  const date = new Date().toLocaleDateString("es-MX")
-  const records = JSON.parse(localStorage.getItem("records")) || []
-  records.push({ score: newScore, date })
-  records.sort((a, b) => b.score - a.score)
-  localStorage.setItem("records", JSON.stringify(records.slice(0, 5)))
-}
-
-function showRecords() {
-  const records = JSON.parse(localStorage.getItem("records")) || []
-  recordsList.innerHTML = ""
-  if (records.length === 0) {
-    recordsList.innerHTML = "<li>No hay récords aún</li>"
-  } else {
-    records.forEach((r, i) => {
-      const li = document.createElement("li")
-      li.innerHTML = `<span>#${i + 1}</span><span>${r.score} pts</span><span>${r.date}</span>`
-      recordsList.appendChild(li)
-    })
-  }
-  recordsPanel.classList.remove("hidden")
-}
-viewRecordsBtn.addEventListener("click", showRecords)
-closeRecordsBtn.addEventListener("click", () => recordsPanel.classList.add("hidden"))
-
 // Game
 const blocks = []
 let currentBlock
@@ -167,7 +94,10 @@ let worldMoveInProgress = false
 let ropeVisualOffset = 0
 const ropeRaiseFactor = 1
 
-// Create hanging block
+/**
+ * Crea un nuevo bloque que cuelga de una cuerda.
+ * @returns {Matter.Body} El cuerpo del bloque creado.
+ */
 function createHangingBlock() {
   const ropeLength = 120;
   const startX = width / 2 + 100;
@@ -215,13 +145,15 @@ function createHangingBlock() {
   });
 
   // Si a partir de 21 cajas colocadas, los próximos bloques deben girar mientras se balancean
-  block.shouldSpinWhileSwing = placedBlocks.length >= 21;
+  block.shouldSpinWhileSwing = placedBlocks.length >= 15;
 
   World.add(world, [block, rope]);
   return block;
 }
 
-
+/**
+ * Anima el balanceo del bloque actual.
+ */
 function animateRopeSwing() {
   if (!currentBlock || !currentBlock.rope || gameOver) return
 
@@ -255,6 +187,9 @@ function animateRopeSwing() {
   }
 }
 
+/**
+ * Comprueba si el mundo del juego necesita moverse hacia arriba.
+ */
 function checkAndMoveWorld() {
   if (placedBlocks.length === 0) return
   if (!cameraFollowEnabled) return
@@ -268,6 +203,11 @@ function checkAndMoveWorld() {
   }
 }
 
+/**
+ * Mueve el mundo del juego hacia arriba.
+ * @param {number} moveAmount La cantidad a mover.
+ * @param {number} [duration=400] La duración de la animación.
+ */
 function performWorldMove(moveAmount, duration = 400) {
   if (worldMoveInProgress) return
   worldMoveInProgress = true
@@ -321,11 +261,17 @@ function performWorldMove(moveAmount, duration = 400) {
   }, frameMs)
 }
 
+/**
+ * Crea un nuevo bloque.
+ */
 function spawnBlock() {
   currentBlock = createHangingBlock()
   blocks.push(currentBlock)
 }
 
+/**
+ * Mueve el mono al bloque actual.
+ */
 function moveMonkeyToCurrentBlock() {
   if (!currentBlock) return
 
@@ -360,6 +306,12 @@ Events.on(engine, "beforeUpdate", () => {
   checkAndMoveWorld()
 })
 
+/**
+ * Anima la caída de la cámara.
+ * @param {number} [moveAmount=300] La cantidad a mover.
+ * @param {number} [duration=700] La duración de la animación.
+ * @param {function} [callback] Una función de devolución de llamada para ejecutar después de la animación.
+ */
 function animateCameraFall(moveAmount = 300, duration = 700, callback) {
   if (worldMoveInProgress) return
   worldMoveInProgress = true
@@ -402,6 +354,9 @@ function animateCameraFall(moveAmount = 300, duration = 700, callback) {
   }, frameMs)
 }
 
+/**
+ * Hace que la torre se caiga.
+ */
 function makeTowerFall() {
   if (towerFalling) return
   towerFalling = true
@@ -430,6 +385,11 @@ function makeTowerFall() {
   animateCameraFall(Math.max(moveAmount, 100), 700, endGame)
 }
 
+/**
+ * Comprueba si la colocación de un bloque es válida.
+ * @param {Matter.Body} block El bloque a comprobar.
+ * @returns {boolean} Si la colocación es válida.
+ */
 function checkBlockPlacement(block) {
   if (placedBlocks.length === 0) return true
 
@@ -446,6 +406,9 @@ function checkBlockPlacement(block) {
   return isValidPlacement
 }
 
+/**
+ * Suelta el bloque actual.
+ */
 function dropBlock() {
   if (gameOver || !currentBlock || !currentBlock.rope || towerFalling) return
 
@@ -524,35 +487,16 @@ function dropBlock() {
   }, 600)
 }
 
-function monkeyHappy() {
-  monkey.classList.add("monkey-happy")
-  setTimeout(() => {
-    monkey.classList.remove("monkey-happy")
-  }, 500)
-}
-
-function monkeySad() {
-  monkey.classList.add("monkey-sad")
-}
-
+/**
+ * Actualiza el fondo del juego en función de la puntuación.
+ */
 function updateBackground() {
   if (score < 5) render.options.background = backgrounds[0]
   else if (score < 10) render.options.background = backgrounds[1]
   else render.options.background = backgrounds[2]
 }
 
-function endGame() {
-  if (gameOver) return
-  gameOver = true
-  monkeySad()
-  monkey.classList.add("monkey-falling")
 
-  monkey.style.transition = "bottom 1.5s ease-in"
-  monkey.style.bottom = "20px"
-
-  finalScore.textContent = score
-  gameOverScreen.classList.remove("hidden")
-}
 
 document.addEventListener("keydown", (e) => {
   if (e.code === "Space") {
@@ -561,70 +505,6 @@ document.addEventListener("keydown", (e) => {
 })
 
 canvas.addEventListener("click", dropBlock)
-retryBtn.addEventListener("click", () => window.location.reload())
-menuBtn.addEventListener("click", () => {
-  window.location.href = 'index.html'
-})
-
-if (volumeSlider) {
-  volumeSlider.addEventListener('input', (e) => {
-    bgMusic.volume = Number(e.target.value);
-  });
-}
-
-if (settingsBtn && inGameSettings) {
-  settingsBtn.addEventListener('click', () => {
-    inGameSettings.classList.toggle('hidden')
-  })
-}
-
-if (igCloseSettings) {
-  igCloseSettings.addEventListener('click', () => {
-    inGameSettings.classList.add('hidden')
-  })
-}
-
-if (igVolumeSlider) {
-  const saved = localStorage.getItem('musicVolume')
-  igVolumeSlider.value = saved !== null ? saved : bgMusic.volume
-  igVolumeSlider.addEventListener('input', (e) => {
-    const v = Number(e.target.value)
-    bgMusic.volume = v
-    localStorage.setItem('musicVolume', String(v))
-  })
-}
-if (sfxVolumeSlider) {
-  const savedSfx = localStorage.getItem('sfxVolume')
-  sfxVolumeSlider.value = savedSfx !== null ? savedSfx : failSfx.volume
-  sfxVolumeSlider.addEventListener('input', (e) => {
-    const v = Number(e.target.value)
-    failSfx.volume = v
-    localStorage.setItem('sfxVolume', String(v))
-  })
-}
-
-if (igMenuBtn) {
-  igMenuBtn.addEventListener('click', () => {
-    endGame()
-    setTimeout(() => { window.location.href = 'index.html' }, 1200)
-  })
-}
-
-if (igQuitBtn) {
-  igQuitBtn.addEventListener('click', () => {
-    endGame()
-  })
-}
-
-function initializeMonkey() {
-  monkey.style.position = "absolute"
-  monkey.style.bottom = "20px"
-  monkey.style.left = "50%"
-  monkey.style.transform = "translateX(-50%)"
-  monkey.style.height = "50px"
-  monkey.style.transition = "bottom 0.5s ease-in-out, left 0.5s ease-in-out"
-  monkey.style.zIndex = "100"
-}
 
 initializeMonkey()
 spawnBlock()
