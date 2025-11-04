@@ -62,6 +62,44 @@ const render = Render.create({
   },
 })
 Render.run(render)
+
+const ropeTexture = new Image();
+ropeTexture.src = 'assets/images/ui/cuerda.png'; // New image
+
+Events.on(render, 'afterRender', () => {
+  if (currentBlock && currentBlock.rope && ropeTexture.complete && ropeTexture.naturalHeight !== 0) {
+    const context = canvas.getContext('2d');
+    const pointA = currentBlock.rope.pointA;
+    const pointB = currentBlock.position;
+
+    const distance = Math.sqrt(Math.pow(pointB.x - pointA.x, 2) + Math.pow(pointB.y - pointA.y, 2));
+    const angle = Math.atan2(pointB.y - pointA.y, pointB.x - pointA.x);
+
+    context.save();
+    context.translate(pointA.x, pointA.y);
+    context.rotate(angle - Math.PI / 2);
+    
+    const textureHeight = ropeTexture.height * 0.5;
+    const ropeWidth = ropeTexture.width * 1.5;
+    const numSegments = Math.floor(distance / textureHeight);
+    
+    for (let i = 0; i < numSegments; i++) {
+        context.drawImage(ropeTexture, -ropeWidth / 2, i * textureHeight, ropeWidth, textureHeight);
+    }
+
+    const remainder = distance - (numSegments * textureHeight);
+    if (remainder > 0) {
+        context.drawImage(
+            ropeTexture,
+            -ropeWidth / 2, numSegments * textureHeight,
+            ropeWidth, remainder
+        );
+    }
+
+    context.restore();
+  }
+});
+
 const runner = Runner.create()
 Runner.run(runner, engine)
 
@@ -120,6 +158,7 @@ const placedBlocks = []
 let towerFalling = false
 let swingDirection = 1
 const swingSpeed = 0.008
+let cameraMoveAmount = 250;
 
 let groundOffset = 0
 const moveThreshold = 150
@@ -130,7 +169,7 @@ const ropeRaiseFactor = 1
 
 // Create hanging block
 function createHangingBlock() {
-  const ropeLength = Math.max(120 - score * 2.5, 60);
+  const ropeLength = 120;
   const startX = width / 2 + 100;
 
   const blockTextures = [
@@ -153,11 +192,11 @@ function createHangingBlock() {
 
   // Mantener el ancla SIEMPRE fija en la parte superior de la pantalla (y = 50)
   const rope = Constraint.create({
-    pointA: { x: width / 2, y: 50 },
+    pointA: { x: width / 2, y: 10 },
     bodyB: block,
     length: ropeLength,
     stiffness: 1,
-    render: { visible: true },
+    render: { visible: false },
   });
 
   rope.originalLength = ropeLength;
@@ -233,6 +272,10 @@ function performWorldMove(moveAmount, duration = 400) {
   if (worldMoveInProgress) return
   worldMoveInProgress = true
 
+  monkey.style.transition = 'none';
+
+
+
   const frameMs = 16
   const steps = Math.max(1, Math.ceil(duration / frameMs))
   const perStep = moveAmount / steps
@@ -253,17 +296,16 @@ function performWorldMove(moveAmount, duration = 400) {
     // Mantener el ancla de la cuerda fija en y=50; solo trasladar el bloque visualmente con el mundo
     if (currentBlock && currentBlock.rope) {
       Body.translate(currentBlock, { x: 0, y: step })
-      // punto A permanece en (x, 50)
-      currentBlock.rope.pointA.x = width / 2
-      currentBlock.rope.pointA.y = 50
-    }
+            currentBlock.rope.pointA.y = 10    }
 
-     try {
-      const computed = window.getComputedStyle(monkey)
-      const currentBottom = parseInt(computed.bottom, 10) || 0
-      monkey.style.bottom = `${currentBottom + step}px`
-    } catch (err) {
-      // ignore if monkey element isn't available or style can't be read
+    if (performWorldMove._snapActive && performWorldMove._snapAnchor) {
+        const anchor = performWorldMove._snapAnchor;
+        const blockHeight = 25;
+        const monkeyHeight = 50;
+        const contactPadding = -10;
+        const newBottom = height - anchor.position.y - blockHeight / 2 + monkeyHeight / 2 + contactPadding;
+        monkey.style.bottom = `${newBottom}px`;
+        monkey.style.left = `${anchor.position.x}px`;
     }
 
     moved += step
@@ -273,6 +315,8 @@ function performWorldMove(moveAmount, duration = 400) {
       performWorldMove._snapActive = false
       performWorldMove._snapAnchor = null
       performWorldMove._snapOffset = 0
+      monkey.style.transition = "bottom 0.5s ease-in-out, left 0.5s ease-in-out";
+
     }
   }, frameMs)
 }
@@ -285,9 +329,9 @@ function spawnBlock() {
 function moveMonkeyToCurrentBlock() {
   if (!currentBlock) return
 
-  const blockHeight = 0
+  const blockHeight = 25
   const monkeyHeight = 50
-  const contactPadding = -16
+  const contactPadding = -10
   const horizontalNudge = 0
 
   const blockY = currentBlock.position.y
@@ -335,7 +379,7 @@ function animateCameraFall(moveAmount = 300, duration = 700, callback) {
     if (currentBlock && currentBlock.rope) {
       // Mantener ancla fija
       currentBlock.rope.pointA.x = width / 2
-      currentBlock.rope.pointA.y = 50
+      currentBlock.rope.pointA.y = 10
       Body.translate(currentBlock, { x: 0, y: -step })
     }
     try {
@@ -449,14 +493,14 @@ function dropBlock() {
       cameraFollowEnabled = true
     }
 
-    if (placedBlocks.length % 6 === 0) {
+    if (placedBlocks.length > 0 && placedBlocks.length % 6 === 0) {
       const anchor = placedBlocks[placedBlocks.length - 1]
       try {
         const computed = window.getComputedStyle(monkey)
         const currentBottom = parseInt(computed.bottom, 10) || 0
-        const blockHeight = 0
+        const blockHeight = 25
         const monkeyHeight = 50
-        const contactPadding = -16
+        const contactPadding = -10
         const baseBottom = height - anchor.position.y - blockHeight / 2 + monkeyHeight / 2 + contactPadding
         performWorldMove._snapActive = true
         performWorldMove._snapAnchor = anchor
@@ -466,7 +510,8 @@ function dropBlock() {
         performWorldMove._snapAnchor = null
         performWorldMove._snapOffset = 0
       }
-      performWorldMove(200)
+      performWorldMove(cameraMoveAmount)
+      cameraMoveAmount += 20;
     }
     moveMonkeyToCurrentBlock()
 
