@@ -27,17 +27,33 @@ body {
 
 /* ======== CANVAS ======== */
 canvas {
+  position: relative;
+  z-index: 2;
   width: 100%;
   height: 100%;
   display: block;
   border-radius: 8px;
   border: 3px solid #fff;
+}
 
-  /* --- AJUSTES PARA FONDO INFINITO --- */
-  background: url("../assets/images/background/jungle_day.png");
-  background-repeat: repeat-y;
-  background-size: 100% auto;
-  background-position: 0 0;
+.level-background {
+  background-size: cover;
+  background-position: center;
+  transition: background-image 1s ease-in-out;
+}
+
+.bg-day {
+  background-image: url('../assets/images/background/jungle_day.png');
+  background-size: cover;
+  background-position: center;
+}
+
+.bg-evening {
+  background-image: url('../assets/images/background/jungle_evening.png');
+}
+
+.bg-night {
+  background-image: url('../assets/images/background/jungle_night.png');
 }
 
 /* ======== HUD ======== */
@@ -143,57 +159,27 @@ button:hover {
   pointer-events: none;
 }
 
-.monkey-happy {
-  animation: monkeyJump 0.3s ease-in-out;
+@keyframes climb {
+  0% { background-position: 0% 33.33%; }
+  50% { background-position: 50% 33.33%; }
+  100% { background-position: 100% 33.33%; }
 }
 
-@keyframes monkeyJump {
-  0% {
-    transform: translateX(-50%) translateY(0);
-  }
-  50% {
-    transform: translateX(-50%) translateY(-10px);
-  }
-  100% {
-    transform: translateX(-50%) translateY(0);
-  }
-}
-
-.monkey-falling {
-  animation: monkeyFall 1.5s ease-in forwards;
-}
-
-@keyframes monkeyFall {
+@keyframes fall {
   0% {
     transform: translateX(-50%) rotate(0deg);
+    background-position: 0% 66.66%; /* Frame de "triste" */
   }
   100% {
-    transform: translateX(-50%) rotate(720deg);
+    transform: translateX(-50%) rotate(360deg);
+    background-position: 100% 66.66%; /* Otro frame de "triste" */
   }
 }
 
 .monkey-climbing {
-  animation: monkeyClimb 0.5s steps(3) infinite;
-  /* Mientras trepa, acércalo aún más hacia el bloque */
-  transform: translateX(calc(-50% - 10px)) translateY(-6px);
+  animation: climb 0.3s infinite steps(3);
 }
 
-@keyframes monkeyClimb {
-  0% {
-    background-position: 0% 0%;
-  }
-  33.33% {
-    background-position: -100% 0%;
-  }
-  66.66% {
-    background-position: -200% 0%;
-  }
-  100% {
-    background-position: 0% 0%;
-  }
-}
-
-/* Utilidad opcional por si se quiere forzar el efecto de trepado permanente */
-.monkey-grabbed {
-  transform: translateX(calc(-50% - 10px)) translateY(-6px);
+.monkey-falling {
+  animation: fall 0.5s linear;
 }

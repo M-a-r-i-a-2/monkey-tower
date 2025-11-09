@@ -45,6 +45,7 @@ body {
     justify-content: flex-end; /* 🔹 Empuja los botones hacia abajo */
     align-items: center;
     padding-bottom: 30px; /* 🔹 Separación del borde inferior */
+    border-radius: 10px;
 }
 
 /* Botones */

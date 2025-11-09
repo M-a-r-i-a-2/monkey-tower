@@ -17,6 +17,8 @@ const sfxVolumeSlider = document.getElementById('sfxVolumeSlider')
 const igCloseSettings = document.getElementById('igCloseSettings')
 const igMenuBtn = document.getElementById('igMenuBtn')
 const igQuitBtn = document.getElementById('igQuitBtn')
+const recordWarning = document.getElementById('recordWarning')
+const powerUp = document.getElementById('powerUp')
 
 retryBtn.addEventListener("click", () => window.location.reload())
 menuBtn.addEventListener("click", () => {
@@ -54,7 +56,6 @@ if (igQuitBtn) {
 function endGame() {
   if (gameOver) return
   gameOver = true
-  monkeySad()
   monkey.classList.add("monkey-falling")
 
   monkey.style.transition = "bottom 1.5s ease-in"
@@ -92,4 +93,20 @@ function initializeMonkey() {
   monkey.style.height = "50px"
   monkey.style.transition = "bottom 0.5s ease-in-out, left 0.5s ease-in-out"
   monkey.style.zIndex = "100"
+}
+
+/**
+ * Muestra u oculta una advertencia si el jugador está cerca de su récord.
+ * @param {number} score La puntuación actual.
+ * @param {number} highScore El récord actual.
+ */
+function checkRecordWarning(score, highScore) {
+  if (!recordWarning) return;
+
+  const proximity = 3; // a cuántos puntos de distancia para mostrar el mensaje
+  if (highScore > 0 && score >= highScore - proximity && score < highScore) {
+    recordWarning.classList.remove('hidden');
+  } else {
+    recordWarning.classList.add('hidden');
+  }
 }

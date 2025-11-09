@@ -9,8 +9,6 @@ const { Engine, Render, Runner, Bodies, Composite, Events, World, Constraint, Bo
 const width = canvas.width
 const height = canvas.height
 
-// Backgrounds
-const backgrounds = ["#4a7c59", "#6b5b4f", "#2c3e50"]
 
 // Engine and render
 const engine = Engine.create()
@@ -24,7 +22,7 @@ const render = Render.create({
     width,
     height,
     wireframes: false,
-    background: backgrounds[0],
+    background: 'transparent',
   },
 })
 Render.run(render)
@@ -86,6 +84,13 @@ let towerFalling = false
 let swingDirection = 1
 const swingSpeed = 0.008
 let cameraMoveAmount = 250;
+
+// Power-up
+let powerUpActive = false;
+let originalSwingSpeed = swingSpeed;
+const powerUpElement = document.getElementById('powerUp');
+const vignette = document.getElementById('vignette');
+const powerUpSfx = new Audio('assets/sounds/powerup.mp3');
 
 let groundOffset = 0
 const moveThreshold = 150
@@ -284,27 +289,72 @@ function moveMonkeyToCurrentBlock() {
   const blockX = currentBlock.position.x
 
   const newBottom = height - blockY - blockHeight / 2 + monkeyHeight / 2 + contactPadding
-  const newLeft = blockX + horizontalNudge
-
-  monkey.classList.add("monkey-climbing")
-
-  monkey.style.transition = "bottom 0.5s ease-in-out, left 0.5s ease-in-out"
+    const newLeft = blockX + horizontalNudge
+  
+    monkey.classList.add("monkey-climbing");
+    monkey.style.transition = "bottom 0.5s ease-in-out, left 0.5s ease-in-out"
   monkey.style.bottom = `${newBottom}px`
   monkey.style.left = `${newLeft}px`
 
+  // La transición dura 500ms, así que quitamos la clase de animación justo después
   setTimeout(() => {
+    monkey.classList.remove("monkey-climbing")
+    // Pequeño "salto" al llegar
     monkey.style.transform = "translateX(-50%) scale(1.05)"
     setTimeout(() => {
       monkey.style.transform = "translateX(-50%) scale(1)"
-      monkey.classList.remove("monkey-climbing")
     }, 120)
-  }, 220)
+  }, 500)
 }
 
 Events.on(engine, "beforeUpdate", () => {
   animateRopeSwing()
   checkAndMoveWorld()
+  checkPowerUpCollision()
 })
+
+/**
+ * Comprueba la colisión entre el bloque actual y el power-up.
+ */
+function checkPowerUpCollision() {
+  if (!powerUpActive || !currentBlock) return;
+
+  const blockPos = currentBlock.position;
+  const powerUpPos = {
+    x: parseFloat(powerUpElement.style.left),
+    y: parseFloat(powerUpElement.style.top),
+  };
+
+  const distance = Math.sqrt(
+    Math.pow(blockPos.x - powerUpPos.x, 2) + Math.pow(blockPos.y - powerUpPos.y, 2)
+  );
+
+  if (distance < 50) { // 50 es un umbral de colisión
+    activatePowerUp();
+  }
+}
+
+/**
+ * Activa el power-up de ralentización.
+ */
+function activatePowerUp() {
+  powerUpElement.classList.add('hidden');
+  powerUpActive = false;
+
+  vignette.classList.remove('hidden');
+
+  const sfxVolume = localStorage.getItem('sfxVolume');
+  powerUpSfx.volume = sfxVolume !== null ? Number(sfxVolume) : 0.5;
+  powerUpSfx.play().catch(() => {});
+
+  const slowSpeed = originalSwingSpeed / 2;
+  swingSpeed = slowSpeed;
+
+  setTimeout(() => {
+    swingSpeed = originalSwingSpeed;
+    vignette.classList.add('hidden');
+  }, 5000); // 5 segundos de efecto
+}
 
 /**
  * Anima la caída de la cámara.
@@ -425,11 +475,13 @@ function dropBlock() {
     if (placedBlocks.length === 0) {
       Body.setStatic(currentBlock, true)
       placedBlocks.push(currentBlock)
+      createBlockPlacementParticles(currentBlock.position.x, currentBlock.position.y)
       moveMonkeyToCurrentBlock()
 
       score++
       scoreDisplay.textContent = score
       updateHighScore(score)
+      checkRecordWarning(score, highScore)
       updateBackground()
       spawnBlock()
       return
@@ -451,6 +503,7 @@ function dropBlock() {
 
     Body.setStatic(currentBlock, true)
     placedBlocks.push(currentBlock)
+    createBlockPlacementParticles(currentBlock.position.x, currentBlock.position.y)
     
     if (placedBlocks.length >= 6) {
       cameraFollowEnabled = true
@@ -481,6 +534,7 @@ function dropBlock() {
     score++
     scoreDisplay.textContent = score
     updateHighScore(score)
+    checkRecordWarning(score, highScore)
     updateBackground()
 
     spawnBlock()
@@ -491,9 +545,35 @@ function dropBlock() {
  * Actualiza el fondo del juego en función de la puntuación.
  */
 function updateBackground() {
-  if (score < 5) render.options.background = backgrounds[0]
-  else if (score < 10) render.options.background = backgrounds[1]
-  else render.options.background = backgrounds[2]
+  canvas.classList.remove("bg-evening", "bg-night")
+  canvas.classList.add("bg-day")
+}
+
+/**
+ * Muestra el power-up en una posición aleatoria.
+ */
+function spawnPowerUp() {
+  if (powerUpActive || gameOver) return;
+
+  const x = Math.random() * (width - 100) + 50;
+  const y = Math.random() * (height / 2) + 50;
+
+  powerUpElement.style.left = `${x}px`;
+  powerUpElement.style.top = `${y}px`;
+  powerUpElement.classList.remove('hidden');
+
+  powerUpActive = true;
+}
+
+/**
+ * Programa la aparición del siguiente power-up.
+ */
+function scheduleNextPowerUp() {
+  const delay = Math.random() * 10000 + 10000; // Entre 10 y 20 segundos
+  setTimeout(() => {
+    spawnPowerUp();
+    scheduleNextPowerUp();
+  }, delay);
 }
 
 
@@ -508,3 +588,4 @@ canvas.addEventListener("click", dropBlock)
 
 initializeMonkey()
 spawnBlock()
+scheduleNextPowerUp()

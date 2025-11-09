@@ -13,12 +13,17 @@
 </style>
 
 <body>
-  <div id="game-container">
-    <!-- HUD: puntuación y récords -->
+    <div id="game-container">
+      <!-- HUD: puntuación y récords -->
     <div id="hud">
       <h2>Puntuación: <span id="score">0</span></h2>
       <h3>Récord: <span id="highScore">0</span></h3>
       <button id="viewRecords">🏆 Ver récords</button>
+    </div>
+
+    <!-- Mensaje de récord cercano -->
+    <div id="recordWarning" class="hidden" style="position:absolute;top:120px;left:50%;transform:translateX(-50%);z-index:7;text-align:center;">
+      <p style="font-size:14px;color:#ffd700;">🔥 ¡Estás cerca de tu récord! 🔥</p>
     </div>
 
     <!-- Botón de configuración (ruedita) -->
@@ -45,7 +50,16 @@
     </div>
 
     <!-- Canvas del juego -->
-    <canvas id="gameCanvas" width="460" height="720"></canvas>
+    <canvas id="gameCanvas" class="level-background" width="460" height="720"></canvas>
+
+    <!-- Power-up -->
+    <div id="powerUp" class="hidden" style="position:absolute;z-index:8;width:40px;height:40px;background-image:url('assets/images/ui/slow-motion.png');background-size:cover;border-radius:50%;"></div>
+
+    <!-- Viñeta para efecto de ralentización -->
+    <div id="vignette" class="hidden" style="position:absolute;top:0;left:0;width:100%;height:100%;box-shadow:inset 0 0 100px rgba(0,0,255,0.5);z-index:9;pointer-events:none;"></div>
+
+    <!-- Contenedor de partículas -->
+    <div id="particle-container" style="position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:10;"></div>
 
     <!-- Mono -->
     <div id="monkey"></div>
@@ -78,6 +92,7 @@
   <script src="js/score.js"></script>
   <script src="js/ui.js"></script>
   <script src="js/music.js"></script>
+  <script src="js/effects.js"></script>
   <script src="js/game.js"></script>
 </body>
 </html>
