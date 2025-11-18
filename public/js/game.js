@@ -137,7 +137,7 @@ let shieldActive = false;
 const shieldDuration = 5000; // ms (5s)
 
 function updateAbilityBar() {
-  if (level !== 2) {
+  if (level !== 2 && level !== 3) {
     if (abilityBarContainer) abilityBarContainer.classList.add('hidden');
     return;
   }
@@ -147,14 +147,15 @@ function updateAbilityBar() {
 }
 
 function increaseAbilityCharge(amount = 1) {
-  if (level !== 2) return;
+  if (level !== 2 && level !== 3) return;
   abilityChargeCount = Math.min(abilityMax, abilityChargeCount + amount);
   updateAbilityBar();
 }
 
 function activateShield() {
-  if (level !== 2) return;
-  if (abilityChargeCount < abilityMax || shieldActive) return;
+  if (level !== 2 && level !== 3) return;
+  if (level === 2 && (abilityChargeCount < abilityMax || shieldActive)) return;
+  if (level === 3 && shieldActive) return;
   // Activación inmediata, sin cooldown
   shieldActive = true;
   abilityChargeCount = 0;
@@ -874,7 +875,7 @@ function scheduleLevel3ObjectThrows() {
     
     console.log('⏰ Scheduling Level 3 automatic throws');
 
-    const delay = 2500; // 2.5 segundos entre lanzamientos automáticos
+    const delay = 2000; // 2 segundos entre lanzamientos de bloques
     
     setTimeout(() => {
         if (!gameOver && !towerFalling && level === 3) {
@@ -1148,10 +1149,16 @@ canvas.addEventListener("click", dropBlock)
 initializeMonkey()
 spawnBlock()
 scheduleNextPowerUp()
-// Mostrar/actualizar barra si estamos en Nivel 2
+// Mostrar/actualizar barra si estamos en Nivel 2 o 3
 updateAbilityBar();
-// Asegurar que el escudo no sea visible al inicio
-if (towerShield) towerShield.classList.add('hidden');
+// Asegurar que el escudo solo sea visible en Nivel 2 o 3
+if (towerShield) {
+  if (level === 2 || level === 3) {
+    towerShield.classList.remove('hidden');
+  } else {
+    towerShield.classList.add('hidden');
+  }
+}
 if (level === 3) {
   initializeBoss();
   // Agregar lanzamientos automáticos en Nivel 3 además del jefe
