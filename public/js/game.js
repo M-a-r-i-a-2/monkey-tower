@@ -127,6 +127,103 @@ const powerUpElement = document.getElementById('powerUp');
 const vignette = document.getElementById('vignette');
 const powerUpSfx = new Audio('assets/sounds/powerup.mp3');
 
+// --- Barra de habilidad / Escudo (Nivel 2) ---
+const abilityBarContainer = document.getElementById('abilityBarContainer');
+const abilityBarFill = document.getElementById('abilityBarFill');
+const towerShield = document.getElementById('towerShield');
+let abilityChargeCount = 0;
+const abilityMax = 5;
+let shieldActive = false;
+const shieldDuration = 5000; // ms (5s)
+
+function updateAbilityBar() {
+  if (level !== 2) {
+    if (abilityBarContainer) abilityBarContainer.classList.add('hidden');
+    return;
+  }
+  if (abilityBarContainer) abilityBarContainer.classList.remove('hidden');
+  const pct = Math.min(abilityChargeCount / abilityMax * 100, 100);
+  if (abilityBarFill) abilityBarFill.style.width = pct + '%';
+}
+
+function increaseAbilityCharge(amount = 1) {
+  if (level !== 2) return;
+  abilityChargeCount = Math.min(abilityMax, abilityChargeCount + amount);
+  updateAbilityBar();
+}
+
+function activateShield() {
+  if (level !== 2) return;
+  if (abilityChargeCount < abilityMax || shieldActive) return;
+  // Activación inmediata, sin cooldown
+  shieldActive = true;
+  abilityChargeCount = 0;
+  updateAbilityBar();
+
+  if (!towerShield) return;
+  // Mostrar escudo (usar display para garantizar que está oculto cuando no está activo)
+  towerShield.style.display = 'flex';
+  towerShield.style.opacity = '1';
+
+  // Añadir/actualizar contador regresivo dentro del escudo
+  let timerEl = towerShield.querySelector('#shieldTimer');
+  if (!timerEl) {
+    timerEl = document.createElement('div');
+    timerEl.id = 'shieldTimer';
+    timerEl.style.position = 'absolute';
+    timerEl.style.top = '8px';
+    timerEl.style.right = '8px';
+    timerEl.style.padding = '4px 8px';
+    timerEl.style.background = 'rgba(0,0,0,0.4)';
+    timerEl.style.color = '#fff';
+    timerEl.style.fontSize = '14px';
+    timerEl.style.borderRadius = '6px';
+    timerEl.style.pointerEvents = 'none';
+    towerShield.appendChild(timerEl);
+  }
+
+  const start = Date.now();
+  const end = start + shieldDuration;
+
+  // Actualizar contador cada 100ms
+  timerEl.textContent = (Math.ceil((end - Date.now()) / 1000)).toString() + 's';
+  const timerInterval = setInterval(() => {
+    const remaining = Math.max(0, end - Date.now());
+    timerEl.textContent = (Math.ceil(remaining / 1000)).toString() + 's';
+    if (remaining <= 0) {
+      clearInterval(timerInterval);
+    }
+  }, 100);
+
+  console.log('🛡️ Shield activated');
+
+  // Expirar escudo después de shieldDuration
+  setTimeout(() => {
+    shieldActive = false;
+    // ocultar visual del escudo
+    towerShield.style.opacity = '0';
+    // esperar pequeño fade y luego display none
+    setTimeout(() => {
+      towerShield.style.display = 'none';
+      if (timerEl && timerEl.parentNode) timerEl.parentNode.removeChild(timerEl);
+    }, 200);
+    console.log('🛡️ Shield expired');
+  }, shieldDuration);
+}
+
+// Boss (Nivel 3)
+const bossElement = document.getElementById('boss');
+let bossActive = level === 3;
+let bossPosition = { x: width / 2, y: height - 100 }; // En el suelo
+let bossDirection = 1; // 1 para derecha, -1 para izquierda
+let bossHeldRock = null;
+let bossThrowCooldown = 0;
+const bossSpeed = 3; // Píxeles por frame
+const bossThrowInterval = 2000; // Milisegundos entre lanzamientos
+let rocksThrown = 0; // Contador de rocas lanzadas por el jefe
+let bossWidth = 80;
+let bossHeight = 80;
+
 let groundOffset = 0
 const moveThreshold = 150
 let cameraFollowEnabled = false
@@ -338,6 +435,11 @@ Events.on(engine, "beforeUpdate", () => {
   checkAndMoveWorld()
   checkPowerUpCollision()
 
+  // Actualizar jefe si está activo (Nivel 3)
+  if (level === 3 && bossActive) {
+    updateBoss();
+  }
+
   if (!towerFalling && placedBlocks.length > 1) {
     for (const block of placedBlocks) {
       if (block.position.y > (ground.position.y - 10) || Math.abs(block.angle) > 0.9) {
@@ -363,14 +465,25 @@ Events.on(engine, 'collisionStart', function(event) {
     const isPlacedBlockB = bodyB.label === 'block' && placedBlocks.some(b => b.id === bodyB.id);
 
     if ((isRockA && isPlacedBlockB) || (isRockB && isPlacedBlockA)) {
-      wobbleTower();
-      
       const rockBody = isRockA ? bodyA : bodyB;
-      setTimeout(() => {
-        if (World.get(engine.world, rockBody.id)) {
+      // Si el escudo está activo, eliminar la roca y no provocar wobble
+      if (shieldActive) {
+        try {
+          if (World.get(engine.world, rockBody.id)) {
             World.remove(world, rockBody);
-        }
-      }, 200);
+          }
+        } catch (e) {}
+        continue;
+      }
+
+      wobbleTower();
+      if (rockBody !== bossHeldRock) {
+        setTimeout(() => {
+          if (World.get(engine.world, rockBody.id)) {
+              World.remove(world, rockBody);
+          }
+        }, 200);
+      }
     }
   }
 });
@@ -437,6 +550,8 @@ function dropBlock() {
     if (placedBlocks.length === 0) {
       Body.setStatic(currentBlock, true)
       placedBlocks.push(currentBlock)
+      // Aumentar carga de habilidad (Nivel 2)
+      increaseAbilityCharge(1)
       createBlockPlacementParticles(currentBlock.position.x, currentBlock.position.y)
       moveMonkeyToCurrentBlock()
 
@@ -465,6 +580,8 @@ function dropBlock() {
 
     Body.setStatic(currentBlock, true)
     placedBlocks.push(currentBlock)
+    // Aumentar carga de habilidad (Nivel 2)
+    increaseAbilityCharge(1)
     createBlockPlacementParticles(currentBlock.position.x, currentBlock.position.y)
     
     if (placedBlocks.length >= 6) {
@@ -732,6 +849,8 @@ function throwObjectAtTower() {
  */
 function scheduleObjectThrows() {
     if (level < 2 || gameOver) return;
+    if (level === 3) return; // Nivel 3: rocas lanzadas por el jefe y sistema automático
+    
     console.log('⏰ Scheduling object throws for level', level);
 
     const baseDelay = 3000; // 3 segundos entre lanzamientos
@@ -747,16 +866,279 @@ function scheduleObjectThrows() {
     }, delay);
 }
 
+/**
+ * Programa el lanzamiento de objetos para Nivel 3 (sistema automático adicional).
+ */
+function scheduleLevel3ObjectThrows() {
+    if (level !== 3 || gameOver || towerFalling) return;
+    
+    console.log('⏰ Scheduling Level 3 automatic throws');
+
+    const delay = 2500; // 2.5 segundos entre lanzamientos automáticos
+    
+    setTimeout(() => {
+        if (!gameOver && !towerFalling && level === 3) {
+            throwObjectAtTower();
+            scheduleLevel3ObjectThrows();
+        }
+    }, delay);
+}
+
 // Iniciar lanzamientos de objetos para nivel 2+
 setTimeout(() => {
     if (level >= 2) {
         scheduleObjectThrows();
     }
 }, 1500);
+/**
+ * Inicializa el jefe (Nivel 3).
+ */
+function initializeBoss() {
+  if (level !== 3) return;
+  
+  bossElement.classList.remove('hidden');
+  updateBossDisplay();
+  
+  console.log('🎮 Boss initialized for Level 3');
+}
+
+/**
+ * Actualiza la posición visual del jefe.
+ */
+function updateBossDisplay() {
+  if (!bossActive) return;
+  
+  bossElement.style.left = `${bossPosition.x}px`;
+  bossElement.style.top = `${bossPosition.y}px`;
+}
+
+/**
+ * Actualiza la lógica del jefe cada frame.
+ */
+function updateBoss() {
+  if (!bossActive || gameOver || towerFalling) return;
+  
+  // Incrementar cooldown
+  bossThrowCooldown += 16; // Aproximadamente 16ms por frame
+  
+  // Movimiento horizontal del jefe (de un lado a otro)
+  moveBoss();
+  
+  // Si el jefe no tiene roca, buscar rocas cercanas en el suelo
+  if (!bossHeldRock) {
+    searchForRocksNearby();
+  }
+  
+  // Si el jefe tiene una roca, intentar lanzarla
+  if (bossHeldRock && bossThrowCooldown > bossThrowInterval) {
+    bossThrowRock();
+  }
+  
+  updateBossDisplay();
+}
+
+/**
+ * Busca rocas cercanas al jefe para recogerlas.
+ */
+function searchForRocksNearby() {
+  if (gameOver || towerFalling) return;
+  
+  const allBodies = Composite.allBodies(world);
+  const rocksInWorld = allBodies.filter(body => body.label === 'rock');
+  
+  // Buscar la roca más cercana
+  let closestRock = null;
+  let closestDistance = 150; // Rango de detección
+  
+  rocksInWorld.forEach(rock => {
+    // Solo rocas que estén cerca del suelo (no volando)
+    if (rock.position.y > height - 200) {
+      const distance = Math.abs(rock.position.x - bossPosition.x);
+      if (distance < closestDistance) {
+        closestDistance = distance;
+        closestRock = rock;
+      }
+    }
+  });
+  
+  // Si encontró una roca cercana, recogerla
+  if (closestRock && bossThrowCooldown > bossThrowInterval) {
+    bossHeldRock = closestRock;
+    bossThrowCooldown = 0;
+    console.log('🎯 Boss caught rock!');
+  }
+}
+
+/**
+ * Crea una roca para el jefe.
+ */
+function createBossRock() {
+  const rock = Bodies.rectangle(bossPosition.x + 20, bossPosition.y + 40, 35, 35, {
+    restitution: 0.3,
+    friction: 0.7,
+    density: 1.5,
+    render: {
+      sprite: {
+        texture: 'assets/images/blocks/block1.png',
+        xScale: 0.4,
+        yScale: 0.4
+      }
+    },
+    label: "rock",
+    chamfer: { radius: 8 }
+  });
+  
+  World.add(world, rock);
+  bossHeldRock = rock;
+  console.log('🪨 Boss created rock');
+}
+
+/**
+ * El jefe lanza la roca que sostiene.
+ */
+function bossThrowRock() {
+  if (!bossHeldRock || !World.get(engine.world, bossHeldRock.id)) {
+    bossHeldRock = null;
+    bossThrowCooldown = 0;
+    return;
+  }
+  
+  // El jefe se mueve a un lado sosteniendo la roca
+  moveBossWithRock(bossHeldRock);
+}
+
+/**
+ * El jefe se mueve a un lado sosteniendo la roca y luego la lanza.
+ */
+function moveBossWithRock(rock) {
+  if (!World.get(engine.world, rock.id) || gameOver || towerFalling) return;
+  
+  // Decidir dirección: moverse hacia el lado opuesto
+  const moveDirection = bossDirection * -1; // Cambiar dirección actual
+  const moveDistance = 80; // Píxeles a mover
+  
+  // Posición inicial del jefe
+  const bossStartX = bossPosition.x;
+  
+  // Posición hacia donde moverse
+  const targetBossX = Math.max(40, Math.min(bossStartX + moveDistance * moveDirection, width - 40));
+  
+  // Tiempo de movimiento
+  const moveDuration = 700; // milisegundos
+  const startTime = Date.now();
+  
+  // Animar el movimiento del jefe sosteniendo la roca
+  const moveRockInterval = setInterval(() => {
+    if (gameOver || towerFalling || !World.get(engine.world, rock.id)) {
+      clearInterval(moveRockInterval);
+      return;
+    }
+    
+    const elapsed = Date.now() - startTime;
+    const progress = Math.min(elapsed / moveDuration, 1); // 0 a 1
+    
+    // Interpolación suave (easing)
+    const easeProgress = progress < 0.5 
+      ? 2 * progress * progress 
+      : -1 + (4 - 2 * progress) * progress;
+    
+    // Nueva posición del jefe
+    const newBossX = bossStartX + (targetBossX - bossStartX) * easeProgress;
+    bossPosition.x = newBossX;
+    
+    // La roca se mueve junto al jefe, en su "mano"
+    const rockX = newBossX + 30;
+    const rockY = height - 80;
+    
+    Body.setPosition(rock, { x: rockX, y: rockY });
+    Body.setVelocity(rock, { x: 0, y: 0 });
+    Body.setAngularVelocity(rock, 0);
+    
+    updateBossDisplay();
+    
+    if (progress >= 1) {
+      clearInterval(moveRockInterval);
+      
+      // Después de moverse, lanzar la roca
+      setTimeout(() => {
+        if (!World.get(engine.world, rock.id) || gameOver || towerFalling) {
+          bossHeldRock = null;
+          bossThrowCooldown = 0;
+          return;
+        }
+        
+        // Apuntar al bloque más alto
+        const targetBlock = placedBlocks.length > 0 
+          ? placedBlocks[Math.floor(placedBlocks.length * 0.6)]
+          : null;
+        
+        if (!targetBlock) {
+          bossHeldRock = null;
+          bossThrowCooldown = 0;
+          return;
+        }
+        
+        const targetX = targetBlock.position.x;
+        const targetY = targetBlock.position.y;
+        
+        const distanceX = targetX - bossPosition.x;
+        const distanceY = targetY - bossPosition.y;
+        
+        const angle = Math.atan2(distanceY, distanceX);
+        
+        // Velocidad del lanzamiento
+        const speed = 8 + Math.random() * 2;
+        const velocity = {
+          x: Math.cos(angle) * speed,
+          y: Math.sin(angle) * speed
+        };
+        
+        Body.setVelocity(rock, velocity);
+        Body.setAngularVelocity(rock, (Math.random() - 0.5) * 0.3);
+        
+        rocksThrown++;
+        console.log('💥 Boss threw rock! Total:', rocksThrown);
+        
+        const rockToRemove = rock;
+        bossHeldRock = null;
+        bossThrowCooldown = 0;
+        
+        // Eliminar la roca después de 10 segundos
+        setTimeout(() => {
+          if (World.get(engine.world, rockToRemove.id)) {
+            World.remove(world, rockToRemove);
+          }
+        }, 10000);
+      }, 300); // Esperar 300ms antes de lanzar
+    }
+  }, 16); // ~60fps
+}
+
+/**
+ * Mueve al jefe de un lado al otro en el suelo.
+ */
+function moveBoss() {
+  // Movimiento horizontal: izquierda y derecha
+  bossPosition.x += bossSpeed * bossDirection;
+  
+  // Cambiar dirección cuando llega al borde
+  if (bossPosition.x <= 40) {
+    bossDirection = 1; // Ir hacia derecha
+  } else if (bossPosition.x >= width - 40) {
+    bossDirection = -1; // Ir hacia izquierda
+  }
+  
+  // El jefe siempre está en el suelo
+  bossPosition.y = height - 100;
+}
+
 // EVENT LISTENERS AL FINAL
 document.addEventListener("keydown", (e) => {
   if (e.code === "Space") {
     dropBlock()
+  } else if (e.code === "KeyE") {
+    // Activar escudo (Nivel 2)
+    activateShield();
   }
 })
 
@@ -766,9 +1148,25 @@ canvas.addEventListener("click", dropBlock)
 initializeMonkey()
 spawnBlock()
 scheduleNextPowerUp()
+// Mostrar/actualizar barra si estamos en Nivel 2
+updateAbilityBar();
+// Asegurar que el escudo no sea visible al inicio
+if (towerShield) towerShield.classList.add('hidden');
+if (level === 3) {
+  initializeBoss();
+  // Agregar lanzamientos automáticos en Nivel 3 además del jefe
+  setTimeout(() => {
+    scheduleLevel3ObjectThrows();
+  }, 2000);
+} else if (level >= 2) {
+  scheduleObjectThrows();
+}
 console.log('🎮 Level:', level, 'Score:', score, 'Placed blocks:', placedBlocks.length)
-if (level >= 2) {
-    console.log('🚀 Scheduling object throws for level >= 2')
+if (level === 3) {
+  console.log('👹 Boss Mode activated for Level 3');
+  console.log('🚀 Level 3 automatic throws scheduled');
+} else if (level >= 2) {
+  console.log('🚀 Scheduling object throws for level >= 2')
 } else {
-    console.log('❌ Not scheduling throws, level < 2')
+  console.log('❌ Not scheduling throws, level < 2')
 }
