@@ -274,3 +274,61 @@ input[type="range"] {
 .panel-button.close:hover {
     background-color: #e74c3c;
 }
+
+/* ====================================================== */
+/* === ESTILOS PARA EL PANEL DE SELECCIÓN DE NIVEL ==== */
+/* ====================================================== */
+
+#level-selection-panel {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.85);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+}
+
+#level-selection-panel.hidden {
+    display: none;
+}
+
+.level-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    margin-top: 20px;
+}
+
+.level-btn {
+    font-family: 'Luckiest Guy', cursive;
+    font-size: 24px;
+    color: #fff;
+    text-shadow: 1px 1px 2px #000;
+    background-color: #7a5c49;
+    border: 2px solid #5C4033;
+    border-radius: 8px;
+    padding: 15px 30px;
+    box-shadow: inset 0 0 5px rgba(0,0,0,0.4);
+}
+
+.level-btn::after {
+    display: none;
+}
+
+.level-btn:hover {
+    background-color: #5C4033;
+    transform: scale(1.05);
+}
+
+#close-level-selection {
+    margin-top: 20px;
+    background-color: #7c6563;
+}
+
+#close-level-selection:hover {
+    background-color: #a57d79;
+}

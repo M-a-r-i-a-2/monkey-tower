@@ -183,3 +183,24 @@ button:hover {
 .monkey-falling {
   animation: fall 0.5s linear;
 }
+
+@keyframes peek-and-hide {
+  0% {
+    transform: translateX(calc(-50% - 6px)) translateY(0);
+    background-position: 0% 66.66%; /* Scared frame */
+  }
+  20% {
+    transform: translateX(calc(-50% - 6px)) translateY(-20px); /* Jump up a bit */
+  }
+  80% {
+    transform: translateX(calc(-50% - 6px)) translateY(100%); /* Hide below */
+  }
+  100% {
+    transform: translateX(calc(-50% - 6px)) translateY(0); /* Back to original position */
+  }
+}
+
+.monkey-peeking {
+  animation: peek-and-hide 1s ease-in-out;
+}
+

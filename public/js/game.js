@@ -9,11 +9,17 @@ const { Engine, Render, Runner, Bodies, Composite, Events, World, Constraint, Bo
 const width = canvas.width
 const height = canvas.height
 
+// --- NIVELES ---
+const urlParams = new URLSearchParams(window.location.search);
+const level = parseInt(urlParams.get('level')) || 1;
 
 // Engine and render
 const engine = Engine.create()
 const world = engine.world
 world.gravity.y = 1
+
+console.log('Canvas dimensions:', width, height);
+console.log('Canvas context:', canvas.getContext('2d'));
 
 const render = Render.create({
   canvas,
@@ -23,12 +29,40 @@ const render = Render.create({
     height,
     wireframes: false,
     background: 'transparent',
+    showDebug: false,
+    hasBounds: false
   },
 })
-Render.run(render)
+
+console.log('Render created:', render);
+Render.run(render);
 
 const ropeTexture = new Image();
-ropeTexture.src = 'assets/images/ui/cuerda.png'; // New image
+ropeTexture.src = 'assets/images/ui/cuerda.png';
+
+// Array para trackear rocas activas
+let activeRocks = [];
+
+// Debug extensivo para rocas
+Events.on(engine, 'afterUpdate', function() {
+  const allBodies = Composite.allBodies(world);
+  activeRocks = allBodies.filter(body => body.label === 'rock' || body.label === 'test_rock');
+  
+  if (activeRocks.length > 0) {
+    console.log('=== ROCKS DEBUG ===');
+    console.log('Active rocks count:', activeRocks.length);
+    activeRocks.forEach((rock, index) => {
+      console.log(`Rock ${index}:`, {
+        id: rock.id,
+        label: rock.label,
+        position: { x: Math.round(rock.position.x), y: Math.round(rock.position.y) },
+        velocity: { x: Math.round(rock.velocity.x * 100)/100, y: Math.round(rock.velocity.y * 100)/100 },
+        bounds: rock.bounds
+      });
+    });
+    console.log('==================');
+  }
+});
 
 Events.on(render, 'afterRender', () => {
   if (currentBlock && currentBlock.rope && ropeTexture.complete && ropeTexture.naturalHeight !== 0) {
@@ -81,8 +115,9 @@ let currentBlock
 let gameOver = false
 const placedBlocks = []
 let towerFalling = false
+let isWobbling = false
 let swingDirection = 1
-const swingSpeed = 0.008
+let swingSpeed = 0.008
 let cameraMoveAmount = 250;
 
 // Power-up
@@ -101,7 +136,6 @@ const ropeRaiseFactor = 1
 
 /**
  * Crea un nuevo bloque que cuelga de una cuerda.
- * @returns {Matter.Body} El cuerpo del bloque creado.
  */
 function createHangingBlock() {
   const ropeLength = 120;
@@ -125,7 +159,6 @@ function createHangingBlock() {
     label: "block",
   });
 
-  // Mantener el ancla SIEMPRE fija en la parte superior de la pantalla (y = 50)
   const rope = Constraint.create({
     pointA: { x: width / 2, y: 10 },
     bodyB: block,
@@ -137,11 +170,9 @@ function createHangingBlock() {
   rope.originalLength = ropeLength;
   block.rope = rope;
 
-  // Ángulo inicial hacia la derecha
-  const startAngle = 0.5; // radianes
+  const startAngle = 0.5;
   block.swingAngle = startAngle;
 
-  // Sincroniza la posición del bloque con ese ángulo respecto al ancla fija
   const offsetX = Math.sin(startAngle) * ropeLength;
   const offsetY = Math.cos(startAngle) * ropeLength;
   Body.setPosition(block, {
@@ -149,7 +180,6 @@ function createHangingBlock() {
     y: rope.pointA.y + offsetY,
   });
 
-  // Si a partir de 21 cajas colocadas, los próximos bloques deben girar mientras se balancean
   block.shouldSpinWhileSwing = placedBlocks.length >= 15;
 
   World.add(world, [block, rope]);
@@ -183,9 +213,7 @@ function animateRopeSwing() {
   Body.setPosition(currentBlock, { x: newX, y: newY })
   Body.setVelocity(currentBlock, { x: 0, y: 0 })
 
-  // A partir de 21 cajas colocadas, el bloque en la cuerda rota mientras se balancea
   if (currentBlock.shouldSpinWhileSwing) {
-    // velocidad angular suave dependiente del sentido del balanceo
     Body.setAngularVelocity(currentBlock, 0.08 * swingDirection)
   } else {
     Body.setAngularVelocity(currentBlock, 0)
@@ -210,16 +238,12 @@ function checkAndMoveWorld() {
 
 /**
  * Mueve el mundo del juego hacia arriba.
- * @param {number} moveAmount La cantidad a mover.
- * @param {number} [duration=400] La duración de la animación.
  */
 function performWorldMove(moveAmount, duration = 400) {
   if (worldMoveInProgress) return
   worldMoveInProgress = true
 
   monkey.style.transition = 'none';
-
-
 
   const frameMs = 16
   const steps = Math.max(1, Math.ceil(duration / frameMs))
@@ -238,10 +262,15 @@ function performWorldMove(moveAmount, duration = 400) {
       Body.translate(block, { x: 0, y: step })
     })
 
-    // Mantener el ancla de la cuerda fija en y=50; solo trasladar el bloque visualmente con el mundo
     if (currentBlock && currentBlock.rope) {
       Body.translate(currentBlock, { x: 0, y: step })
-            currentBlock.rope.pointA.y = 10    }
+      currentBlock.rope.pointA.y = 10
+    }
+
+    // Mover rocas activas también
+    activeRocks.forEach(rock => {
+      Body.translate(rock, { x: 0, y: step });
+    });
 
     if (performWorldMove._snapActive && performWorldMove._snapAnchor) {
         const anchor = performWorldMove._snapAnchor;
@@ -261,7 +290,6 @@ function performWorldMove(moveAmount, duration = 400) {
       performWorldMove._snapAnchor = null
       performWorldMove._snapOffset = 0
       monkey.style.transition = "bottom 0.5s ease-in-out, left 0.5s ease-in-out";
-
     }
   }, frameMs)
 }
@@ -289,17 +317,15 @@ function moveMonkeyToCurrentBlock() {
   const blockX = currentBlock.position.x
 
   const newBottom = height - blockY - blockHeight / 2 + monkeyHeight / 2 + contactPadding
-    const newLeft = blockX + horizontalNudge
+  const newLeft = blockX + horizontalNudge
   
-    monkey.classList.add("monkey-climbing");
-    monkey.style.transition = "bottom 0.5s ease-in-out, left 0.5s ease-in-out"
+  monkey.classList.add("monkey-climbing");
+  monkey.style.transition = "bottom 0.5s ease-in-out, left 0.5s ease-in-out"
   monkey.style.bottom = `${newBottom}px`
   monkey.style.left = `${newLeft}px`
 
-  // La transición dura 500ms, así que quitamos la clase de animación justo después
   setTimeout(() => {
     monkey.classList.remove("monkey-climbing")
-    // Pequeño "salto" al llegar
     monkey.style.transform = "translateX(-50%) scale(1.05)"
     setTimeout(() => {
       monkey.style.transform = "translateX(-50%) scale(1)"
@@ -311,7 +337,43 @@ Events.on(engine, "beforeUpdate", () => {
   animateRopeSwing()
   checkAndMoveWorld()
   checkPowerUpCollision()
+
+  if (!towerFalling && placedBlocks.length > 1) {
+    for (const block of placedBlocks) {
+      if (block.position.y > (ground.position.y - 10) || Math.abs(block.angle) > 0.9) {
+        makeTowerFall()
+        break
+      }
+    }
+  }
 })
+
+Events.on(engine, 'collisionStart', function(event) {
+  const pairs = event.pairs;
+
+  for (let i = 0; i < pairs.length; i++) {
+    const pair = pairs[i];
+    const bodyA = pair.bodyA;
+    const bodyB = pair.bodyB;
+
+    const isRockA = bodyA.label === 'rock';
+    const isRockB = bodyB.label === 'rock';
+    
+    const isPlacedBlockA = bodyA.label === 'block' && placedBlocks.some(b => b.id === bodyA.id);
+    const isPlacedBlockB = bodyB.label === 'block' && placedBlocks.some(b => b.id === bodyB.id);
+
+    if ((isRockA && isPlacedBlockB) || (isRockB && isPlacedBlockA)) {
+      wobbleTower();
+      
+      const rockBody = isRockA ? bodyA : bodyB;
+      setTimeout(() => {
+        if (World.get(engine.world, rockBody.id)) {
+            World.remove(world, rockBody);
+        }
+      }, 200);
+    }
+  }
+});
 
 /**
  * Comprueba la colisión entre el bloque actual y el power-up.
@@ -329,7 +391,7 @@ function checkPowerUpCollision() {
     Math.pow(blockPos.x - powerUpPos.x, 2) + Math.pow(blockPos.y - powerUpPos.y, 2)
   );
 
-  if (distance < 50) { // 50 es un umbral de colisión
+  if (distance < 50) {
     activatePowerUp();
   }
 }
@@ -353,107 +415,7 @@ function activatePowerUp() {
   setTimeout(() => {
     swingSpeed = originalSwingSpeed;
     vignette.classList.add('hidden');
-  }, 5000); // 5 segundos de efecto
-}
-
-/**
- * Anima la caída de la cámara.
- * @param {number} [moveAmount=300] La cantidad a mover.
- * @param {number} [duration=700] La duración de la animación.
- * @param {function} [callback] Una función de devolución de llamada para ejecutar después de la animación.
- */
-function animateCameraFall(moveAmount = 300, duration = 700, callback) {
-  if (worldMoveInProgress) return
-  worldMoveInProgress = true
-  const frameMs = 16
-  const steps = Math.max(1, Math.ceil(duration / frameMs))
-  const perStep = moveAmount / steps
-  let moved = 0
-
-  const intervalId = setInterval(() => {
-    const remaining = moveAmount - moved
-    const step = Math.min(perStep, remaining)
-    groundOffset -= step
-
-    placedBlocks.forEach((block) => {
-      Body.translate(block, { x: 0, y: -step })
-    })
-    if (currentBlock && currentBlock.rope) {
-      // Mantener ancla fija
-      currentBlock.rope.pointA.x = width / 2
-      currentBlock.rope.pointA.y = 10
-      Body.translate(currentBlock, { x: 0, y: -step })
-    }
-    try {
-      if (!animateCameraFall._startMonkeyBottomCaptured) {
-        const computed = window.getComputedStyle(monkey)
-        animateCameraFall._startMonkeyBottom = parseInt(computed.bottom, 10) || 0
-        animateCameraFall._movedAccum = 0
-        animateCameraFall._startMonkeyBottomCaptured = true
-      }
-      animateCameraFall._movedAccum += step
-      monkey.style.bottom = `${animateCameraFall._startMonkeyBottom - animateCameraFall._movedAccum}px`
-    } catch (err) {}
-    moved += step
-    if (moved >= moveAmount - 0.001) {
-      clearInterval(intervalId)
-      worldMoveInProgress = false
-      animateCameraFall._startMonkeyBottomCaptured = false
-      if (callback) callback()
-    }
-  }, frameMs)
-}
-
-/**
- * Hace que la torre se caiga.
- */
-function makeTowerFall() {
-  if (towerFalling) return
-  towerFalling = true
-
-  placedBlocks.forEach((block, index) => {
-    Body.setStatic(block, false)
-    const wobbleForce = 0.002 + index * 0.0003
-    const direction = Math.random() > 0.5 ? 1 : -1
-    Body.applyForce(block, block.position, {
-      x: wobbleForce * direction,
-      y: 0,
-    })
-    Body.setAngularVelocity(block, (Math.random() - 0.5) * 0.1)
-  })
-  
-  try {
-    failSfx.currentTime = 0
-    failSfx.play().catch(() => {})
-  } catch (e) {}
-
-  const lowestBlock = placedBlocks.reduce((lowest, block) => {
-    return block.position.y > lowest.position.y ? block : lowest
-  }, placedBlocks[0])
-  const distanceToGround = ground.position.y - lowestBlock.position.y
-  const moveAmount = Math.max(0, distanceToGround - 40)
-  animateCameraFall(Math.max(moveAmount, 100), 700, endGame)
-}
-
-/**
- * Comprueba si la colocación de un bloque es válida.
- * @param {Matter.Body} block El bloque a comprobar.
- * @returns {boolean} Si la colocación es válida.
- */
-function checkBlockPlacement(block) {
-  if (placedBlocks.length === 0) return true
-
-  const lastBlock = placedBlocks[placedBlocks.length - 1]
-  const blockWidth = block.bounds.max.x - block.bounds.min.x
-
-  const overlap =
-    Math.min(block.bounds.max.x, lastBlock.bounds.max.x) - Math.max(block.bounds.min.x, lastBlock.bounds.min.x)
-
-  const verticalDistance = Math.abs(block.position.y - lastBlock.position.y)
-
-  const isValidPlacement = overlap >= blockWidth * 0.4 && verticalDistance < 60
-
-  return isValidPlacement
+  }, 5000);
 }
 
 /**
@@ -542,6 +504,135 @@ function dropBlock() {
 }
 
 /**
+ * Comprueba si la colocación de un bloque es válida.
+ */
+function checkBlockPlacement(block) {
+  if (placedBlocks.length === 0) return true
+
+  const lastBlock = placedBlocks[placedBlocks.length - 1]
+  const blockWidth = block.bounds.max.x - block.bounds.min.x
+
+  const overlap =
+    Math.min(block.bounds.max.x, lastBlock.bounds.max.x) - Math.max(block.bounds.min.x, lastBlock.bounds.min.x)
+
+  const verticalDistance = Math.abs(block.position.y - lastBlock.position.y)
+
+  const isValidPlacement = overlap >= blockWidth * 0.4 && verticalDistance < 60
+
+  return isValidPlacement
+}
+
+/**
+ * Hace que la torre se caiga.
+ */
+function makeTowerFall() {
+  if (towerFalling) return
+  towerFalling = true
+
+  placedBlocks.forEach((block, index) => {
+    Body.setStatic(block, false)
+    const wobbleForce = 0.002 + index * 0.0003
+    const direction = Math.random() > 0.5 ? 1 : -1
+    Body.applyForce(block, block.position, {
+      x: wobbleForce * direction,
+      y: 0,
+    })
+    Body.setAngularVelocity(block, (Math.random() - 0.5) * 0.1)
+  })
+  
+  try {
+    failSfx.currentTime = 0
+    failSfx.play().catch(() => {})
+  } catch (e) {}
+
+  const lowestBlock = placedBlocks.reduce((lowest, block) => {
+    return block.position.y > lowest.position.y ? block : lowest
+  }, placedBlocks[0])
+  const distanceToGround = ground.position.y - lowestBlock.position.y
+  const moveAmount = Math.max(0, distanceToGround - 40)
+  animateCameraFall(Math.max(moveAmount, 100), 700, endGame)
+}
+
+/**
+ * Hace que la torre se tambalee.
+ */
+function wobbleTower() {
+  if (towerFalling || isWobbling || placedBlocks.length < 2) return;
+  isWobbling = true;
+
+  placedBlocks.forEach((block, index) => {
+    Body.setStatic(block, false);
+    const wobbleForce = 0.0005 + index * 0.00005;
+    const direction = Math.random() > 0.5 ? 1 : -1;
+    Body.applyForce(block, block.position, {
+      x: wobbleForce * direction,
+      y: -0.0005, // A little push up to counteract gravity
+    });
+  });
+
+  setTimeout(() => {
+    placedBlocks.forEach((block) => {
+      if (!towerFalling) {
+        Body.setVelocity(block, { x: 0, y: 0 });
+        Body.setAngularVelocity(block, 0);
+        Body.setStatic(block, true);
+      }
+    });
+    isWobbling = false;
+  }, 500);
+}
+
+/**
+ * Anima la caída de la cámara.
+ */
+function animateCameraFall(moveAmount = 300, duration = 700, callback) {
+  if (worldMoveInProgress) return
+  worldMoveInProgress = true
+  const frameMs = 16
+  const steps = Math.max(1, Math.ceil(duration / frameMs))
+  const perStep = moveAmount / steps
+  let moved = 0
+
+  const intervalId = setInterval(() => {
+    const remaining = moveAmount - moved
+    const step = Math.min(perStep, remaining)
+    groundOffset -= step
+
+    placedBlocks.forEach((block) => {
+      Body.translate(block, { x: 0, y: -step })
+    })
+    
+    // Mover rocas también
+    activeRocks.forEach(rock => {
+      Body.translate(rock, { x: 0, y: -step });
+    });
+    
+    if (currentBlock && currentBlock.rope) {
+      currentBlock.rope.pointA.x = width / 2
+      currentBlock.rope.pointA.y = 10
+      Body.translate(currentBlock, { x: 0, y: -step })
+    }
+    try {
+      if (!animateCameraFall._startMonkeyBottomCaptured) {
+        const computed = window.getComputedStyle(monkey)
+        animateCameraFall._startMonkeyBottom = parseInt(computed.bottom, 10) || 0
+        animateCameraFall._movedAccum = 0
+        animateCameraFall._startMonkeyBottomCaptured = true
+      }
+      animateCameraFall._movedAccum += step
+      monkey.style.bottom = `${animateCameraFall._startMonkeyBottom - animateCameraFall._movedAccum}px`
+    } catch (err) {}
+    moved += step
+    if (moved >= moveAmount - 0.001) {
+      clearInterval(intervalId)
+      worldMoveInProgress = false
+      animateCameraFall._startMonkeyBottomCaptured = false
+      if (callback) callback()
+    }
+  }, frameMs)
+}
+
+/**
  * Actualiza el fondo del juego en función de la puntuación.
  */
 function updateBackground() {
@@ -569,15 +660,100 @@ function spawnPowerUp() {
  * Programa la aparición del siguiente power-up.
  */
 function scheduleNextPowerUp() {
-  const delay = Math.random() * 10000 + 10000; // Entre 10 y 20 segundos
+  const delay = Math.random() * 10000 + 10000;
   setTimeout(() => {
     spawnPowerUp();
     scheduleNextPowerUp();
   }, delay);
 }
 
+/**
+ * Lanza un objeto a la torre. (Nivel 2 y 3)
+ */
+function throwObjectAtTower() {
+    if (gameOver || towerFalling || placedBlocks.length < 3) return;
 
+    const side = Math.random() > 0.5 ? 'left' : 'right';
+    const startX = side === 'left' ? -30 : width + 30;
+    const startY = Math.random() * (height - 250) + 150;
 
+    const rock = Bodies.rectangle(startX, startY, 35, 35, {
+        restitution: 0.3,
+        friction: 0.7,
+        density: 1.5,
+        render: {
+            sprite: {
+                texture: 'assets/images/blocks/block1.png',
+                xScale: 0.4,
+                yScale: 0.4
+            }
+        },
+        label: "rock",
+        chamfer: { radius: 8 }
+    });
+
+    World.add(world, rock);
+
+    // Apuntar a un bloque aleatorio en la mitad superior de la torre
+    const upperBlocks = placedBlocks.slice(Math.floor(placedBlocks.length / 2));
+    const targetBlock = upperBlocks[Math.floor(Math.random() * upperBlocks.length)];
+    
+    if (!targetBlock) return;
+
+    const targetX = targetBlock.position.x;
+    const targetY = targetBlock.position.y;
+
+    const distanceX = targetX - startX;
+    const distanceY = targetY - startY;
+    
+    const angle = Math.atan2(distanceY, distanceX);
+    
+    // Velocidad directa en lugar de fuerza
+    const speed = 7 + Math.random() * 3; // Velocidad entre 7 y 10
+    const velocity = {
+        x: Math.cos(angle) * speed,
+        y: Math.sin(angle) * speed * 0.1 // Reducir la componente vertical para una trayectoria más plana
+    };
+
+    // Aplicar velocidad y rotación
+    Body.setVelocity(rock, velocity);
+    Body.setAngularVelocity(rock, (Math.random() - 0.5) * 0.3);
+
+    // Eliminar la roca después de un tiempo para que no se acumulen
+    setTimeout(() => {
+        if (World.get(engine.world, rock.id)) {
+            World.remove(world, rock);
+        }
+    }, 10000);
+}
+
+/**
+ * Programa el lanzamiento de objetos para niveles 2 y 3.
+ */
+function scheduleObjectThrows() {
+    if (level < 2 || gameOver) return;
+    console.log('⏰ Scheduling object throws for level', level);
+
+    const baseDelay = 3000; // 3 segundos entre lanzamientos
+    const delay = baseDelay;
+    
+    console.log('⏱️ Next throw in', delay / 1000, 'seconds');
+
+    setTimeout(() => {
+        if (!gameOver && !towerFalling) {
+            throwObjectAtTower();
+            scheduleObjectThrows();
+        }
+    }, delay);
+}
+
+// Iniciar lanzamientos de objetos para nivel 2+
+setTimeout(() => {
+    if (level >= 2) {
+        scheduleObjectThrows();
+    }
+}, 1500);
+// EVENT LISTENERS AL FINAL
 document.addEventListener("keydown", (e) => {
   if (e.code === "Space") {
     dropBlock()
@@ -586,6 +762,13 @@ document.addEventListener("keydown", (e) => {
 
 canvas.addEventListener("click", dropBlock)
 
+// INICIALIZACIÓN
 initializeMonkey()
 spawnBlock()
 scheduleNextPowerUp()
+console.log('🎮 Level:', level, 'Score:', score, 'Placed blocks:', placedBlocks.length)
+if (level >= 2) {
+    console.log('🚀 Scheduling object throws for level >= 2')
+} else {
+    console.log('❌ Not scheduling throws, level < 2')
+}
