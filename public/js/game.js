@@ -224,6 +224,24 @@ const bossThrowInterval = 2000; // Milisegundos entre lanzamientos
 let rocksThrown = 0; // Contador de rocas lanzadas por el jefe
 let bossWidth = 80;
 let bossHeight = 80;
+let bossTambalearCooldown = 0; // Cooldown para tambalear la torre
+const bossTambalearInterval = 3000; // Cada 3 segundos intenta tambalear
+const bossTambalearDistance = 80; // Distancia mínima para tambalear
+let bossIsWobbling = false; // Estado: ¿está tamabaleando?
+let wobbleStartTime = 0; // Momento en que empezó a tambalear
+const wobbleDuration = 2000; // Duración del tambaleo en milisegundos
+
+// --- Boss sprite animation ---
+const bossSpriteSrc = 'assets/images/characters/jefe.png';
+// Animación SOLO piernas
+const bossLegSpriteSrc = 'assets/images/characters/piernas.png';
+let bossLegFrameCount = 4; // frames horizontales para las piernas
+let bossLegFrameIndex = 0;
+let bossLegFrameTimer = 0;
+let bossLegFrameRate = 10; // frames por segundo para las piernas
+let bossLegSpriteLoaded = false;
+let bossLegsElement = null;
+let bossPrevX = bossPosition.x;
 
 let groundOffset = 0
 const moveThreshold = 150
@@ -898,6 +916,31 @@ function initializeBoss() {
   if (level !== 3) return;
   
   bossElement.classList.remove('hidden');
+
+  // Obtener elemento de piernas y cargar su sprite-sheet
+  bossLegsElement = document.getElementById('boss-legs');
+  try {
+    const img = new Image();
+    img.src = bossLegSpriteSrc;
+    img.onload = () => {
+      bossLegSpriteLoaded = true;
+      if (img.naturalWidth && bossWidth && (img.naturalWidth / bossWidth) >= 1) {
+        const derived = Math.round(img.naturalWidth / bossWidth);
+        if (derived >= 1) bossLegFrameCount = derived;
+      }
+      if (bossLegsElement) {
+        bossLegsElement.style.backgroundImage = `url('${bossLegSpriteSrc}')`;
+        bossLegsElement.style.backgroundSize = `${bossLegFrameCount * 100}% 100%`;
+        bossLegsElement.style.backgroundPosition = `0% 0%`;
+      }
+    };
+    img.onerror = () => {
+      bossLegSpriteLoaded = false;
+    };
+  } catch (e) {
+    bossLegSpriteLoaded = false;
+  }
+
   updateBossDisplay();
   
   console.log('🎮 Boss initialized for Level 3');
@@ -919,22 +962,74 @@ function updateBossDisplay() {
 function updateBoss() {
   if (!bossActive || gameOver || towerFalling) return;
   
-  // Incrementar cooldown
+  // Incrementar cooldowns
   bossThrowCooldown += 16; // Aproximadamente 16ms por frame
+  bossTambalearCooldown += 16;
   
-  // Movimiento horizontal del jefe (de un lado a otro)
-  moveBoss();
-  
-  // Si el jefe no tiene roca, buscar rocas cercanas en el suelo
-  if (!bossHeldRock) {
-    searchForRocksNearby();
+  // Si está tamabaleando, actualizar el estado del tambaleo
+  if (bossIsWobbling) {
+    const elapsedWobble = Date.now() - wobbleStartTime;
+    if (elapsedWobble < wobbleDuration) {
+      // Continuar tamabaleando
+      wobbleTower();
+      // El jefe se mantiene en el centro
+      bossPosition.x = width / 2;
+    } else {
+      // Terminar el tambaleo
+      bossIsWobbling = false;
+      bossThrowCooldown = 0; // Resetear cooldown para poder lanzar rocas de nuevo
+    }
+  } else {
+    // Movimiento normal del jefe
+    moveBoss();
+    
+    // Si el jefe no tiene roca, buscar rocas cercanas en el suelo
+    if (!bossHeldRock) {
+      searchForRocksNearby();
+    }
+    
+    // Si el jefe tiene una roca, intentar lanzarla
+    if (bossHeldRock && bossThrowCooldown > bossThrowInterval) {
+      bossThrowRock();
+    }
+    
+    // Intentar tambalear la torre si está disponible
+    if (bossTambalearCooldown > bossTambalearInterval && !bossHeldRock && placedBlocks.length > 0) {
+      startTowerWobble();
+      bossTambalearCooldown = 0;
+    }
   }
   
-  // Si el jefe tiene una roca, intentar lanzarla
-  if (bossHeldRock && bossThrowCooldown > bossThrowInterval) {
-    bossThrowRock();
+  // --- Animación de caminar (solo piernas) del jefe ---
+  try {
+    const moved = Math.abs(bossPosition.x - bossPrevX);
+    const isWalking = moved > 0.5 && !bossIsWobbling; // threshold mínimo para detectar movimiento
+    bossPrevX = bossPosition.x;
+
+    if (bossLegSpriteLoaded && bossLegsElement) {
+      if (isWalking) {
+        bossLegFrameTimer += 16;
+        const frameDuration = 1000 / bossLegFrameRate;
+        if (bossLegFrameTimer >= frameDuration) {
+          bossLegFrameTimer = bossLegFrameTimer % frameDuration;
+          bossLegFrameIndex = (bossLegFrameIndex + 1) % bossLegFrameCount;
+          const posPercent = bossLegFrameIndex * (100 / bossLegFrameCount);
+          bossLegsElement.style.backgroundPosition = `${posPercent}% 0%`;
+        }
+      } else {
+        // idle: primera frame de las piernas
+        bossLegFrameIndex = 0;
+        bossLegFrameTimer = 0;
+        bossLegsElement.style.backgroundPosition = `0% 0%`;
+      }
+    }
+
+    // Voltear todo el contenedor del jefe según dirección (mantiene el cuerpo y piernas coherentes)
+    bossElement.style.transform = `translateX(-50%) scaleX(${bossDirection === -1 ? -1 : 1})`;
+  } catch (e) {
+    // seguridad: si algo falla, no detener la lógica del boss
   }
-  
+
   updateBossDisplay();
 }
 
@@ -1113,6 +1208,56 @@ function moveBossWithRock(rock) {
       }, 300); // Esperar 300ms antes de lanzar
     }
   }, 16); // ~60fps
+}
+
+/**
+ * Inicia el tambaleo de la torre.
+ */
+function startTowerWobble() {
+  if (gameOver || towerFalling || placedBlocks.length === 0) return;
+  
+  // El jefe se acerca al centro (donde está la torre)
+  const towerCenterX = width / 2;
+  const distanceToTower = Math.abs(bossPosition.x - towerCenterX);
+  
+  // Si el jefe está lejos, moverse hacia la torre
+  if (distanceToTower > bossTambalearDistance) {
+    const direction = bossPosition.x < towerCenterX ? 1 : -1;
+    bossPosition.x += bossSpeed * direction;
+  } else {
+    // El jefe está cerca, comienza a tambalear
+    bossIsWobbling = true;
+    wobbleStartTime = Date.now();
+    console.log('🌪️ Boss starts wobbling the tower!');
+  }
+}
+
+/**
+ * Tambalea la torre aplicando fuerzas alternadas a los bloques.
+ */
+function wobbleTower() {
+  if (placedBlocks.length === 0) return;
+  
+  console.log('🌪️ Boss is wobbling the tower!');
+  
+  // Aplicar fuerzas a los bloques para simular tambaleo
+  placedBlocks.forEach((block, index) => {
+    if (World.get(engine.world, block.id)) {
+      // Alternancia de dirección: izquierda y derecha
+      const forceDirection = (index % 2 === 0) ? 1 : -1;
+      
+      // Aplicar fuerzas horizontales basadas en la altura
+      // Los bloques más altos reciben más fuerza
+      const heightFactor = (index / placedBlocks.length) + 0.5;
+      const forceX = forceDirection * 0.008 * heightFactor;
+      const forceY = 0; // Sin fuerza vertical
+      
+      Body.applyForce(block, block.position, { x: forceX, y: forceY });
+      
+      // Aplicar un pequeño torque para hacerlo girar
+      Body.setAngularVelocity(block, forceDirection * 0.05);
+    }
+  });
 }
 
 /**

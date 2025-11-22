@@ -65,7 +65,10 @@
     <div id="monkey"></div>
 
     <!-- Jefe (Nivel 3) -->
-    <div id="boss" class="hidden" style="position:absolute;z-index:5;width:80px;height:80px;background-image:url('assets/images/characters/jefe.png');background-size:contain;background-repeat:no-repeat;background-position:center;"></div>
+    <div id="boss" class="hidden" style="position:absolute;z-index:5;width:80px;height:80px;background-image:url('assets/images/characters/jefe.png');background-size:contain;background-repeat:no-repeat;background-position:center;transform:translateX(-50%);">
+      <!-- Contenedor para animar SOLO las piernas del jefe -->
+      <div id="boss-legs" style="position:absolute;left:50%;bottom:6px;transform:translateX(-50%);width:25%;height:15%;background-image:url('assets/images/characters/piernas.png');background-repeat:no-repeat;background-size:cover;background-position:0% 0%;pointer-events:none;z-index:6;"></div>
+    </div>
     
     <!-- Game Over -->
     <div id="gameOver" class="hidden">
