@@ -136,6 +136,26 @@ const abilityMax = 5;
 let shieldActive = false;
 const shieldDuration = 5000; // ms (5s)
 
+// Boss (Nivel 3)
+const bossElement = document.getElementById('boss');
+let bossActive = false; // Se activará después de 4 cajas en nivel 3
+let bossPosition = { x: width / 2, y: height - 100 }; // En el suelo
+let bossDirection = 1; // 1 para derecha, -1 para izquierda
+const bossSpeed = 3; // Píxeles por frame
+let bossWidth = 80;
+let bossHeight = 80;
+
+// --- Boss sprite animation ---
+const bossLegSpriteSrc = 'assets/images/characters/piernas.png';
+let bossLegFrameCount = 4; // frames horizontales para las piernas
+let bossLegFrameIndex = 0;
+let bossLegFrameTimer = 0;
+let bossLegFrameRate = 10; // frames por segundo para las piernas
+let bossLegSpriteLoaded = false;
+let bossLegsElement = null;
+let bossPrevX = bossPosition.x;
+
+
 function updateAbilityBar() {
   if (level !== 2 && level !== 3) {
     if (abilityBarContainer) abilityBarContainer.classList.add('hidden');
@@ -212,36 +232,216 @@ function activateShield() {
   }, shieldDuration);
 }
 
-// Boss (Nivel 3)
-const bossElement = document.getElementById('boss');
-let bossActive = level === 3;
-let bossPosition = { x: width / 2, y: height - 100 }; // En el suelo
-let bossDirection = 1; // 1 para derecha, -1 para izquierda
-let bossHeldRock = null;
-let bossThrowCooldown = 0;
-const bossSpeed = 3; // Píxeles por frame
-const bossThrowInterval = 2000; // Milisegundos entre lanzamientos
-let rocksThrown = 0; // Contador de rocas lanzadas por el jefe
-let bossWidth = 80;
-let bossHeight = 80;
-let bossTambalearCooldown = 0; // Cooldown para tambalear la torre
-const bossTambalearInterval = 3000; // Cada 3 segundos intenta tambalear
-const bossTambalearDistance = 80; // Distancia mínima para tambalear
-let bossIsWobbling = false; // Estado: ¿está tamabaleando?
-let wobbleStartTime = 0; // Momento en que empezó a tambalear
-const wobbleDuration = 2000; // Duración del tambaleo en milisegundos
 
-// --- Boss sprite animation ---
-const bossSpriteSrc = 'assets/images/characters/jefe.png';
-// Animación SOLO piernas
-const bossLegSpriteSrc = 'assets/images/characters/piernas.png';
-let bossLegFrameCount = 4; // frames horizontales para las piernas
-let bossLegFrameIndex = 0;
-let bossLegFrameTimer = 0;
-let bossLegFrameRate = 10; // frames por segundo para las piernas
-let bossLegSpriteLoaded = false;
-let bossLegsElement = null;
-let bossPrevX = bossPosition.x;
+/**
+ * Actualiza la posición visual del jefe.
+ */
+function updateBossDisplay() {
+  if (!bossActive) return;
+  
+  bossElement.style.left = `${bossPosition.x}px`;
+  bossElement.style.top = `${bossPosition.y}px`;
+}
+
+
+
+
+/**
+ * Inicializa el jefe (Nivel 3).
+ */
+function initializeBoss() {
+  if (level !== 3) return;
+  
+  bossActive = true;
+  bossElement.classList.remove('hidden');
+
+  // Obtener elemento de piernas y cargar su sprite-sheet
+  bossLegsElement = document.getElementById('boss-legs');
+  try {
+    const img = new Image();
+    img.src = bossLegSpriteSrc;
+    img.onload = () => {
+      bossLegSpriteLoaded = true;
+      if (img.naturalWidth && bossWidth && (img.naturalWidth / bossWidth) >= 1) {
+        const derived = Math.round(img.naturalWidth / bossWidth);
+        if (derived >= 1) bossLegFrameCount = derived;
+      }
+      if (bossLegsElement) {
+        bossLegsElement.style.backgroundImage = `url('${bossLegSpriteSrc}')`;
+        bossLegsElement.style.backgroundSize = `${bossLegFrameCount * 100}% 100%`;
+        bossLegsElement.style.backgroundPosition = `0% 0%`;
+      }
+    };
+    img.onerror = () => {
+      bossLegSpriteLoaded = false;
+    };
+  } catch (e) {
+    bossLegSpriteLoaded = false;
+  }
+
+  updateBossDisplay();
+  
+  console.log('🎮 Boss initialized for Level 3');
+}
+
+/**
+ * Actualiza la posición visual de
+/**
+ * Actualiza la lógica del jefe cada frame.
+ */
+function updateBoss() {
+  if (!bossActive || gameOver || towerFalling) return;
+  
+  moveBoss();
+  
+  // --- Animación de caminar (solo piernas) del jefe ---
+  try {
+    const moved = Math.abs(bossPosition.x - bossPrevX);
+    const isWalking = moved > 0.5; // threshold mínimo para detectar movimiento
+    bossPrevX = bossPosition.x;
+
+    if (bossLegSpriteLoaded && bossLegsElement) {
+      if (isWalking) {
+        bossLegFrameTimer += 16;
+        const frameDuration = 1000 / bossLegFrameRate;
+        if (bossLegFrameTimer >= frameDuration) {
+          bossLegFrameTimer = bossLegFrameTimer % frameDuration;
+          bossLegFrameIndex = (bossLegFrameIndex + 1) % bossLegFrameCount;
+          const posPercent = bossLegFrameIndex * (100 / bossLegFrameCount);
+          bossLegsElement.style.backgroundPosition = `${posPercent}% 0%`;
+        }
+      } else {
+        // idle: primera frame de las piernas
+        bossLegFrameIndex = 0;
+        bossLegFrameTimer = 0;
+        bossLegsElement.style.backgroundPosition = `0% 0%`;
+      }
+    }
+
+    // Voltear todo el contenedor del jefe según dirección (mantiene el cuerpo y piernas coherentes)
+    bossElement.style.transform = `translateX(-50%) scaleX(${bossDirection === -1 ? -1 : 1})`;
+  } catch (e) {
+    // seguridad: si algo falla, no detener la lógica del boss
+  }
+
+  updateBossDisplay();
+  bossBehavior();
+
+}
+// =======================================================
+//   BOSS A–1–B : caminar → parar → tambalear → empujar
+// =======================================================
+
+let bossPhase = 0; 
+let bossTargetX = null;
+let bossShakeTime = 0;
+
+// Punto donde está la base de la torre
+function getTowerBaseX() {
+    if (placedBlocks.length === 0) return width / 2;
+    return placedBlocks[0].position.x;
+}
+
+/** Forzar caída de la torre (empuje fuerte del boss) */
+function bossPushTowerHard() {
+    if (placedBlocks.length === 0) return;
+
+    placedBlocks.forEach((block, i) => {
+        Body.setStatic(block, false);
+        Body.applyForce(block, block.position, {
+            x: 0.04 * bossDirection,    // MUCHO más fuerte que wobble normal
+            y: -0.02
+        });
+        Body.setAngularVelocity(block, (Math.random() - 0.5) * 0.2);
+    });
+
+    towerFalling = true;
+    bossPhase = 999; // Terminado
+
+    try {
+        failSfx.currentTime = 0;
+        failSfx.play().catch(() => {});
+    } catch (e) {}
+
+    const lowestBlock = placedBlocks.reduce((lowest, block) => {
+        return block.position.y > lowest.position.y ? block : lowest;
+    }, placedBlocks[0]);
+    const distanceToGround = ground.position.y - lowestBlock.position.y;
+    const moveAmount = Math.max(0, distanceToGround - 40);
+    animateCameraFall(Math.max(moveAmount, 100), 700, endGame);
+}
+
+/** Lógica principal del comportamiento A–1–B */
+function bossBehavior() {
+    if (!bossActive || towerFalling || !placedBlocks.length) return;
+
+    const towerX = getTowerBaseX();
+
+    switch (bossPhase) {
+
+        // -------------------------------------------------------
+        // 0 → Caminar hacia la base de la torre
+        // -------------------------------------------------------
+        case 0:
+            bossTargetX = towerX;
+
+            const dx = bossTargetX - bossPosition.x;
+            const step = Math.sign(dx) * 2;
+
+            bossDirection = step > 0 ? 1 : -1;
+            bossPosition.x += step;
+
+            // ¿Ya llegó?
+            if (Math.abs(dx) < 5) {
+                bossPhase = 1;
+                bossShakeTime = Date.now();
+            }
+        break;
+
+        // -------------------------------------------------------
+        // 1 → Esperar y tambalear la torre (como aviso)
+        // -------------------------------------------------------
+        case 1:
+            wobbleTower();
+
+            // Tambalea por 500ms
+            if (Date.now() - bossShakeTime > 500) {
+                bossPhase = 2;
+            }
+        break;
+
+        // -------------------------------------------------------
+        // 2 → Empujar FUERTE la torre y tirarla completamente
+        // -------------------------------------------------------
+        case 2:
+            bossPushTowerHard();
+        break;
+
+    }
+
+    updateBossDisplay();
+}
+
+/**
+ * Mueve al jefe de un lado al otro en el suelo.
+ */
+function moveBoss() {
+  // Movimiento horizontal: izquierda y derecha
+  bossPosition.x += bossSpeed * bossDirection;
+  
+  // Cambiar dirección cuando llega al borde
+  if (bossPosition.x <= 40) {
+    bossDirection = 1; // Ir hacia derecha
+  } else if (bossPosition.x >= width - 40) {
+    bossDirection = -1; // Ir hacia izquierda
+  }
+  
+  // El jefe siempre está en el suelo
+  bossPosition.y = height - 100;
+}
+
+
+
 
 let groundOffset = 0
 const moveThreshold = 150
@@ -454,10 +654,10 @@ Events.on(engine, "beforeUpdate", () => {
   checkAndMoveWorld()
   checkPowerUpCollision()
 
-  // Actualizar jefe si está activo (Nivel 3)
-  if (level === 3 && bossActive) {
+  if (bossActive) {
     updateBoss();
   }
+
 
   if (!towerFalling && placedBlocks.length > 1) {
     for (const block of placedBlocks) {
@@ -496,13 +696,11 @@ Events.on(engine, 'collisionStart', function(event) {
       }
 
       wobbleTower();
-      if (rockBody !== bossHeldRock) {
-        setTimeout(() => {
-          if (World.get(engine.world, rockBody.id)) {
-              World.remove(world, rockBody);
-          }
-        }, 200);
-      }
+      setTimeout(() => {
+        if (World.get(engine.world, rockBody.id)) {
+            World.remove(world, rockBody);
+        }
+      }, 200);
     }
   }
 });
@@ -569,6 +767,9 @@ function dropBlock() {
     if (placedBlocks.length === 0) {
       Body.setStatic(currentBlock, true)
       placedBlocks.push(currentBlock)
+    if (level === 3 && placedBlocks.length === 4 && !bossActive) {
+      initializeBoss();
+    }
       // Aumentar carga de habilidad (Nivel 2)
       increaseAbilityCharge(1)
       createBlockPlacementParticles(currentBlock.position.x, currentBlock.position.y)
@@ -599,6 +800,12 @@ function dropBlock() {
 
     Body.setStatic(currentBlock, true)
     placedBlocks.push(currentBlock)
+    if (level === 3 && placedBlocks.length === 4 && !bossActive) {
+      initializeBoss();
+    }
+    if (level === 3 && placedBlocks.length === 4 && !bossActive) {
+      initializeBoss();
+    }
     // Aumentar carga de habilidad (Nivel 2)
     increaseAbilityCharge(1)
     createBlockPlacementParticles(currentBlock.position.x, currentBlock.position.y)
@@ -885,398 +1092,12 @@ function scheduleObjectThrows() {
     }, delay);
 }
 
-/**
- * Programa el lanzamiento de objetos para Nivel 3 (sistema automático adicional).
- */
-function scheduleLevel3ObjectThrows() {
-    if (level !== 3 || gameOver || towerFalling) return;
-    
-    console.log('⏰ Scheduling Level 3 automatic throws');
-
-    const delay = 2000; // 2 segundos entre lanzamientos de bloques
-    
-    setTimeout(() => {
-        if (!gameOver && !towerFalling && level === 3) {
-            throwObjectAtTower();
-            scheduleLevel3ObjectThrows();
-        }
-    }, delay);
-}
-
 // Iniciar lanzamientos de objetos para nivel 2+
 setTimeout(() => {
     if (level >= 2) {
         scheduleObjectThrows();
     }
 }, 1500);
-/**
- * Inicializa el jefe (Nivel 3).
- */
-function initializeBoss() {
-  if (level !== 3) return;
-  
-  bossElement.classList.remove('hidden');
-
-  // Obtener elemento de piernas y cargar su sprite-sheet
-  bossLegsElement = document.getElementById('boss-legs');
-  try {
-    const img = new Image();
-    img.src = bossLegSpriteSrc;
-    img.onload = () => {
-      bossLegSpriteLoaded = true;
-      if (img.naturalWidth && bossWidth && (img.naturalWidth / bossWidth) >= 1) {
-        const derived = Math.round(img.naturalWidth / bossWidth);
-        if (derived >= 1) bossLegFrameCount = derived;
-      }
-      if (bossLegsElement) {
-        bossLegsElement.style.backgroundImage = `url('${bossLegSpriteSrc}')`;
-        bossLegsElement.style.backgroundSize = `${bossLegFrameCount * 100}% 100%`;
-        bossLegsElement.style.backgroundPosition = `0% 0%`;
-      }
-    };
-    img.onerror = () => {
-      bossLegSpriteLoaded = false;
-    };
-  } catch (e) {
-    bossLegSpriteLoaded = false;
-  }
-
-  updateBossDisplay();
-  
-  console.log('🎮 Boss initialized for Level 3');
-}
-
-/**
- * Actualiza la posición visual del jefe.
- */
-function updateBossDisplay() {
-  if (!bossActive) return;
-  
-  bossElement.style.left = `${bossPosition.x}px`;
-  bossElement.style.top = `${bossPosition.y}px`;
-}
-
-/**
- * Actualiza la lógica del jefe cada frame.
- */
-function updateBoss() {
-  if (!bossActive || gameOver || towerFalling) return;
-  
-  // Incrementar cooldowns
-  bossThrowCooldown += 16; // Aproximadamente 16ms por frame
-  bossTambalearCooldown += 16;
-  
-  // Si está tamabaleando, actualizar el estado del tambaleo
-  if (bossIsWobbling) {
-    const elapsedWobble = Date.now() - wobbleStartTime;
-    if (elapsedWobble < wobbleDuration) {
-      // Continuar tamabaleando
-      wobbleTower();
-      // El jefe se mantiene en el centro
-      bossPosition.x = width / 2;
-    } else {
-      // Terminar el tambaleo
-      bossIsWobbling = false;
-      bossThrowCooldown = 0; // Resetear cooldown para poder lanzar rocas de nuevo
-    }
-  } else {
-    // Movimiento normal del jefe
-    moveBoss();
-    
-    // Si el jefe no tiene roca, buscar rocas cercanas en el suelo
-    if (!bossHeldRock) {
-      searchForRocksNearby();
-    }
-    
-    // Si el jefe tiene una roca, intentar lanzarla
-    if (bossHeldRock && bossThrowCooldown > bossThrowInterval) {
-      bossThrowRock();
-    }
-    
-    // Intentar tambalear la torre si está disponible
-    if (bossTambalearCooldown > bossTambalearInterval && !bossHeldRock && placedBlocks.length > 0) {
-      startTowerWobble();
-      bossTambalearCooldown = 0;
-    }
-  }
-  
-  // --- Animación de caminar (solo piernas) del jefe ---
-  try {
-    const moved = Math.abs(bossPosition.x - bossPrevX);
-    const isWalking = moved > 0.5 && !bossIsWobbling; // threshold mínimo para detectar movimiento
-    bossPrevX = bossPosition.x;
-
-    if (bossLegSpriteLoaded && bossLegsElement) {
-      if (isWalking) {
-        bossLegFrameTimer += 16;
-        const frameDuration = 1000 / bossLegFrameRate;
-        if (bossLegFrameTimer >= frameDuration) {
-          bossLegFrameTimer = bossLegFrameTimer % frameDuration;
-          bossLegFrameIndex = (bossLegFrameIndex + 1) % bossLegFrameCount;
-          const posPercent = bossLegFrameIndex * (100 / bossLegFrameCount);
-          bossLegsElement.style.backgroundPosition = `${posPercent}% 0%`;
-        }
-      } else {
-        // idle: primera frame de las piernas
-        bossLegFrameIndex = 0;
-        bossLegFrameTimer = 0;
-        bossLegsElement.style.backgroundPosition = `0% 0%`;
-      }
-    }
-
-    // Voltear todo el contenedor del jefe según dirección (mantiene el cuerpo y piernas coherentes)
-    bossElement.style.transform = `translateX(-50%) scaleX(${bossDirection === -1 ? -1 : 1})`;
-  } catch (e) {
-    // seguridad: si algo falla, no detener la lógica del boss
-  }
-
-  updateBossDisplay();
-}
-
-/**
- * Busca rocas cercanas al jefe para recogerlas.
- */
-function searchForRocksNearby() {
-  if (gameOver || towerFalling) return;
-  
-  const allBodies = Composite.allBodies(world);
-  const rocksInWorld = allBodies.filter(body => body.label === 'rock');
-  
-  // Buscar la roca más cercana
-  let closestRock = null;
-  let closestDistance = 150; // Rango de detección
-  
-  rocksInWorld.forEach(rock => {
-    // Solo rocas que estén cerca del suelo (no volando)
-    if (rock.position.y > height - 200) {
-      const distance = Math.abs(rock.position.x - bossPosition.x);
-      if (distance < closestDistance) {
-        closestDistance = distance;
-        closestRock = rock;
-      }
-    }
-  });
-  
-  // Si encontró una roca cercana, recogerla
-  if (closestRock && bossThrowCooldown > bossThrowInterval) {
-    bossHeldRock = closestRock;
-    bossThrowCooldown = 0;
-    console.log('🎯 Boss caught rock!');
-  }
-}
-
-/**
- * Crea una roca para el jefe.
- */
-function createBossRock() {
-  const rock = Bodies.rectangle(bossPosition.x + 20, bossPosition.y + 40, 35, 35, {
-    restitution: 0.3,
-    friction: 0.7,
-    density: 1.5,
-    render: {
-      sprite: {
-        texture: 'assets/images/blocks/block1.png',
-        xScale: 0.4,
-        yScale: 0.4
-      }
-    },
-    label: "rock",
-    chamfer: { radius: 8 }
-  });
-  
-  World.add(world, rock);
-  bossHeldRock = rock;
-  console.log('🪨 Boss created rock');
-}
-
-/**
- * El jefe lanza la roca que sostiene.
- */
-function bossThrowRock() {
-  if (!bossHeldRock || !World.get(engine.world, bossHeldRock.id)) {
-    bossHeldRock = null;
-    bossThrowCooldown = 0;
-    return;
-  }
-  
-  // El jefe se mueve a un lado sosteniendo la roca
-  moveBossWithRock(bossHeldRock);
-}
-
-/**
- * El jefe se mueve a un lado sosteniendo la roca y luego la lanza.
- */
-function moveBossWithRock(rock) {
-  if (!World.get(engine.world, rock.id) || gameOver || towerFalling) return;
-  
-  // Decidir dirección: moverse hacia el lado opuesto
-  const moveDirection = bossDirection * -1; // Cambiar dirección actual
-  const moveDistance = 80; // Píxeles a mover
-  
-  // Posición inicial del jefe
-  const bossStartX = bossPosition.x;
-  
-  // Posición hacia donde moverse
-  const targetBossX = Math.max(40, Math.min(bossStartX + moveDistance * moveDirection, width - 40));
-  
-  // Tiempo de movimiento
-  const moveDuration = 700; // milisegundos
-  const startTime = Date.now();
-  
-  // Animar el movimiento del jefe sosteniendo la roca
-  const moveRockInterval = setInterval(() => {
-    if (gameOver || towerFalling || !World.get(engine.world, rock.id)) {
-      clearInterval(moveRockInterval);
-      return;
-    }
-    
-    const elapsed = Date.now() - startTime;
-    const progress = Math.min(elapsed / moveDuration, 1); // 0 a 1
-    
-    // Interpolación suave (easing)
-    const easeProgress = progress < 0.5 
-      ? 2 * progress * progress 
-      : -1 + (4 - 2 * progress) * progress;
-    
-    // Nueva posición del jefe
-    const newBossX = bossStartX + (targetBossX - bossStartX) * easeProgress;
-    bossPosition.x = newBossX;
-    
-    // La roca se mueve junto al jefe, en su "mano"
-    const rockX = newBossX + 30;
-    const rockY = height - 80;
-    
-    Body.setPosition(rock, { x: rockX, y: rockY });
-    Body.setVelocity(rock, { x: 0, y: 0 });
-    Body.setAngularVelocity(rock, 0);
-    
-    updateBossDisplay();
-    
-    if (progress >= 1) {
-      clearInterval(moveRockInterval);
-      
-      // Después de moverse, lanzar la roca
-      setTimeout(() => {
-        if (!World.get(engine.world, rock.id) || gameOver || towerFalling) {
-          bossHeldRock = null;
-          bossThrowCooldown = 0;
-          return;
-        }
-        
-        // Apuntar al bloque más alto
-        const targetBlock = placedBlocks.length > 0 
-          ? placedBlocks[Math.floor(placedBlocks.length * 0.6)]
-          : null;
-        
-        if (!targetBlock) {
-          bossHeldRock = null;
-          bossThrowCooldown = 0;
-          return;
-        }
-        
-        const targetX = targetBlock.position.x;
-        const targetY = targetBlock.position.y;
-        
-        const distanceX = targetX - bossPosition.x;
-        const distanceY = targetY - bossPosition.y;
-        
-        const angle = Math.atan2(distanceY, distanceX);
-        
-        // Velocidad del lanzamiento
-        const speed = 8 + Math.random() * 2;
-        const velocity = {
-          x: Math.cos(angle) * speed,
-          y: Math.sin(angle) * speed
-        };
-        
-        Body.setVelocity(rock, velocity);
-        Body.setAngularVelocity(rock, (Math.random() - 0.5) * 0.3);
-        
-        rocksThrown++;
-        console.log('💥 Boss threw rock! Total:', rocksThrown);
-        
-        const rockToRemove = rock;
-        bossHeldRock = null;
-        bossThrowCooldown = 0;
-        
-        // Eliminar la roca después de 10 segundos
-        setTimeout(() => {
-          if (World.get(engine.world, rockToRemove.id)) {
-            World.remove(world, rockToRemove);
-          }
-        }, 10000);
-      }, 300); // Esperar 300ms antes de lanzar
-    }
-  }, 16); // ~60fps
-}
-
-/**
- * Inicia el tambaleo de la torre.
- */
-function startTowerWobble() {
-  if (gameOver || towerFalling || placedBlocks.length === 0) return;
-  
-  // El jefe se acerca al centro (donde está la torre)
-  const towerCenterX = width / 2;
-  const distanceToTower = Math.abs(bossPosition.x - towerCenterX);
-  
-  // Si el jefe está lejos, moverse hacia la torre
-  if (distanceToTower > bossTambalearDistance) {
-    const direction = bossPosition.x < towerCenterX ? 1 : -1;
-    bossPosition.x += bossSpeed * direction;
-  } else {
-    // El jefe está cerca, comienza a tambalear
-    bossIsWobbling = true;
-    wobbleStartTime = Date.now();
-    console.log('🌪️ Boss starts wobbling the tower!');
-  }
-}
-
-/**
- * Tambalea la torre aplicando fuerzas alternadas a los bloques.
- */
-function wobbleTower() {
-  if (placedBlocks.length === 0) return;
-  
-  console.log('🌪️ Boss is wobbling the tower!');
-  
-  // Aplicar fuerzas a los bloques para simular tambaleo
-  placedBlocks.forEach((block, index) => {
-    if (World.get(engine.world, block.id)) {
-      // Alternancia de dirección: izquierda y derecha
-      const forceDirection = (index % 2 === 0) ? 1 : -1;
-      
-      // Aplicar fuerzas horizontales basadas en la altura
-      // Los bloques más altos reciben más fuerza
-      const heightFactor = (index / placedBlocks.length) + 0.5;
-      const forceX = forceDirection * 0.008 * heightFactor;
-      const forceY = 0; // Sin fuerza vertical
-      
-      Body.applyForce(block, block.position, { x: forceX, y: forceY });
-      
-      // Aplicar un pequeño torque para hacerlo girar
-      Body.setAngularVelocity(block, forceDirection * 0.05);
-    }
-  });
-}
-
-/**
- * Mueve al jefe de un lado al otro en el suelo.
- */
-function moveBoss() {
-  // Movimiento horizontal: izquierda y derecha
-  bossPosition.x += bossSpeed * bossDirection;
-  
-  // Cambiar dirección cuando llega al borde
-  if (bossPosition.x <= 40) {
-    bossDirection = 1; // Ir hacia derecha
-  } else if (bossPosition.x >= width - 40) {
-    bossDirection = -1; // Ir hacia izquierda
-  }
-  
-  // El jefe siempre está en el suelo
-  bossPosition.y = height - 100;
-}
 
 // EVENT LISTENERS AL FINAL
 document.addEventListener("keydown", (e) => {
@@ -1304,20 +1125,11 @@ if (towerShield) {
     towerShield.classList.add('hidden');
   }
 }
-if (level === 3) {
-  initializeBoss();
-  // Agregar lanzamientos automáticos en Nivel 3 además del jefe
-  setTimeout(() => {
-    scheduleLevel3ObjectThrows();
-  }, 2000);
-} else if (level >= 2) {
+if (level >= 2) {
   scheduleObjectThrows();
 }
 console.log('🎮 Level:', level, 'Score:', score, 'Placed blocks:', placedBlocks.length)
-if (level === 3) {
-  console.log('👹 Boss Mode activated for Level 3');
-  console.log('🚀 Level 3 automatic throws scheduled');
-} else if (level >= 2) {
+if (level >= 2) {
   console.log('🚀 Scheduling object throws for level >= 2')
 } else {
   console.log('❌ Not scheduling throws, level < 2')
