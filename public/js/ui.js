@@ -47,6 +47,7 @@ if (igMenuBtn) {
 if (igQuitBtn) {
   igQuitBtn.addEventListener('click', () => {
     endGame()
+    setTimeout(() => { window.location.href = 'index.html' }, 1200)
   })
 }
 

@@ -204,3 +204,27 @@ button:hover {
   animation: peek-and-hide 1s ease-in-out;
 }
 
+/* ======== RECORDS LIST ======== */
+#recordsList {
+  list-style: none;
+  padding: 0;
+  width: 300px;
+  margin-top: 20px;
+}
+
+#recordsList li {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+  font-size: 14px;
+}
+
+#recordsList li:last-child {
+  border-bottom: none;
+}
+
+#recordsList li span:first-child {
+  font-weight: bold;
+  color: #f8d24b;
+}

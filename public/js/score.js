@@ -21,8 +21,8 @@ function updateHighScore(newScore) {
     highScore = newScore
     localStorage.setItem("highScore", highScore)
     highScoreDisplay.textContent = highScore
-    saveRecord(newScore)
   }
+  saveRecord(newScore)
 }
 
 /**
@@ -30,11 +30,15 @@ function updateHighScore(newScore) {
  * @param {number} newScore La nueva puntuación a guardar.
  */
 function saveRecord(newScore) {
-  const date = new Date().toLocaleDateString("es-MX")
   const records = JSON.parse(localStorage.getItem("records")) || []
-  records.push({ score: newScore, date })
-  records.sort((a, b) => b.score - a.score)
-  localStorage.setItem("records", JSON.stringify(records.slice(0, 5)))
+  const lowestRecord = records.length < 5 ? 0 : records[records.length - 1].score
+
+  if (newScore > lowestRecord || records.length < 5) {
+    const date = new Date().toLocaleDateString("es-MX")
+    records.push({ score: newScore, date })
+    records.sort((a, b) => b.score - a.score)
+    localStorage.setItem("records", JSON.stringify(records.slice(0, 5)))
+  }
 }
 
 /**
@@ -54,5 +58,17 @@ function showRecords() {
   }
   recordsPanel.classList.remove("hidden")
 }
+const resetRecordsBtn = document.getElementById("resetRecords");
+
 viewRecordsBtn.addEventListener("click", showRecords)
 closeRecordsBtn.addEventListener("click", () => recordsPanel.classList.add("hidden"))
+
+resetRecordsBtn.addEventListener("click", () => {
+    if (confirm("¿Estás seguro de que quieres borrar todos los récords? Esta acción no se puede deshacer.")) {
+        localStorage.removeItem("records");
+        localStorage.removeItem("highScore");
+        highScore = 0;
+        highScoreDisplay.textContent = highScore;
+        showRecords();
+    }
+});

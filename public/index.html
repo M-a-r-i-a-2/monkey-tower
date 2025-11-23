@@ -38,24 +38,30 @@
         </div>
 
     <div id="optionsPanel" class="hidden">
-        <div class="panel">
+        <div class="panel panel-options">
             <h1>🔧 Opciones</h1>
             
             <div class="option-section">
                 <h2>Controles</h2>
-                <p><strong>Movimiento:</strong> Flechas Izquierda / Derecha</p>
-                <p><strong>Salto:</strong> Barra Espaciadora</p>
+                <p><strong>Colocar bloque:</strong> Barra Espaciadora / Click</p>
+                <p><strong>Activar escudo (Nivel 2+):</strong> Tecla 'E'</p>
             </div>
 
             <div class="option-section">
                 <h2>Volumen del Juego</h2>
-                <label for="volumeSlider">Música:</label>
-                <input type="range" id="volumeSlider" min="0" max="1" step="0.01" value="0.5">
+                <div>
+                    <label for="volumeSlider">Música:</label>
+                    <input type="range" id="volumeSlider" min="0" max="1" step="0.01" value="0.5">
+                </div>
+                <div style="margin-top: 10px;">
+                    <label for="sfxVolumeSlider">Efectos:</label>
+                    <input type="range" id="sfxVolumeSlider" min="0" max="1" step="0.01" value="0.5">
+                </div>
             </div>
             
             <div class="panel-buttons">
-                <button id="view-records-btn">Ver Récords</button>
-                <button id="closeOptions">Cerrar</button>
+                <button id="view-records-btn" class="panel-button">Ver Récords</button>
+                <button id="closeOptions" class="panel-button close">Cerrar</button>
             </div>
         </div>
     </div>
@@ -64,6 +70,7 @@
         <div class="panel">
             <h1>🏆 Récords locales</h1>
             <ul id="recordsList"></ul>
+            <button id="resetRecords">Reiniciar</button>
             <button id="closeRecords">Cerrar</button>
         </div>
     </div>

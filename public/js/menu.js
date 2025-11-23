@@ -32,8 +32,7 @@ optionsBtn.addEventListener("click", () => {
     optionsPanel.classList.remove("hidden");
 });
 
-// 3. El botón "Récords" (dentro de opciones) carga y muestra las puntuaciones
-viewRecordsBtn.addEventListener("click", () => {
+function showRecords() {
     const records = JSON.parse(localStorage.getItem("records")) || [];
     recordsList.innerHTML = "";
 
@@ -43,14 +42,26 @@ viewRecordsBtn.addEventListener("click", () => {
         records.sort((a, b) => b.score - a.score);
         records.forEach((r, i) => {
             const li = document.createElement("li");
-            const date = new Date(r.date).toLocaleDateString("es-MX");
-            li.innerHTML = `<span>#${i + 1}</span><span>${r.score} pts</span><span>${date}</span>`;
+            li.innerHTML = `<span>#${i + 1}</span><span>${r.score} pts</span><span>${r.date}</span>`;
             recordsList.appendChild(li);
         });
     }
 
     optionsPanel.classList.add("hidden");
     recordsPanel.classList.remove("hidden");
+}
+
+// 3. El botón "Récords" (dentro de opciones) carga y muestra las puntuaciones
+viewRecordsBtn.addEventListener("click", showRecords);
+
+// Lógica para el nuevo botón de reiniciar récords
+const resetRecordsBtn = document.getElementById("resetRecords");
+resetRecordsBtn.addEventListener("click", () => {
+    if (confirm("¿Estás seguro de que quieres borrar todos los récords? Esta acción no se puede deshacer.")) {
+        localStorage.removeItem("records");
+        localStorage.removeItem("highScore");
+        showRecords();
+    }
 });
 
 // 4. Lógica para cerrar el panel de selección de nivel
