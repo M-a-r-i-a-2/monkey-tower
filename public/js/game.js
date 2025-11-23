@@ -4,7 +4,7 @@
 
 // Import Matter.js library
 const Matter = window.Matter
-const { Engine, Render, Runner, Bodies, Composite, Events, World, Constraint, Body } = Matter
+const { Engine, Render, Runner, Bodies, Composite, Events, World, Constraint, Body: MatterBody } = Matter
 
 const width = canvas.width
 const height = canvas.height
@@ -347,12 +347,12 @@ function bossPushTowerHard() {
     if (placedBlocks.length === 0) return;
 
     placedBlocks.forEach((block, i) => {
-        Body.setStatic(block, false);
-        Body.applyForce(block, block.position, {
+        MatterBody.setStatic(block, false);
+        MatterBody.applyForce(block, block.position, {
             x: 0.04 * bossDirection,    // MUCHO más fuerte que wobble normal
             y: -0.02
         });
-        Body.setAngularVelocity(block, (Math.random() - 0.5) * 0.2);
+        MatterBody.setAngularVelocity(block, (Math.random() - 0.5) * 0.2);
     });
 
     towerFalling = true;
@@ -373,7 +373,7 @@ function bossPushTowerHard() {
 
 /** Lógica principal del comportamiento A–1–B */
 function bossBehavior() {
-    if (!bossActive || towerFalling || !placedBlocks.length) return;
+    if (!bossActive || towerFalling || !placedBlocks.length || shieldActive) return;
 
     const towerX = getTowerBaseX();
 
@@ -491,7 +491,7 @@ function createHangingBlock() {
 
   const offsetX = Math.sin(startAngle) * ropeLength;
   const offsetY = Math.cos(startAngle) * ropeLength;
-  Body.setPosition(block, {
+  MatterBody.setPosition(block, {
     x: rope.pointA.x + offsetX,
     y: rope.pointA.y + offsetY,
   });
@@ -526,13 +526,13 @@ function animateRopeSwing() {
   const newX = anchorX + Math.sin(currentBlock.swingAngle) * ropeLength
   const newY = anchorY + Math.cos(currentBlock.swingAngle) * ropeLength
 
-  Body.setPosition(currentBlock, { x: newX, y: newY })
-  Body.setVelocity(currentBlock, { x: 0, y: 0 })
+  MatterBody.setPosition(currentBlock, { x: newX, y: newY })
+  MatterBody.setVelocity(currentBlock, { x: 0, y: 0 })
 
   if (currentBlock.shouldSpinWhileSwing) {
-    Body.setAngularVelocity(currentBlock, 0.08 * swingDirection)
+    MatterBody.setAngularVelocity(currentBlock, 0.08 * swingDirection)
   } else {
-    Body.setAngularVelocity(currentBlock, 0)
+    MatterBody.setAngularVelocity(currentBlock, 0)
   }
 }
 
@@ -572,20 +572,20 @@ function performWorldMove(moveAmount, duration = 400) {
 
     groundOffset += step
 
-    Body.translate(ground, { x: 0, y: step })
+    MatterBody.translate(ground, { x: 0, y: step })
 
     placedBlocks.forEach((block) => {
-      Body.translate(block, { x: 0, y: step })
+      MatterBody.translate(block, { x: 0, y: step })
     })
 
     if (currentBlock && currentBlock.rope) {
-      Body.translate(currentBlock, { x: 0, y: step })
+      MatterBody.translate(currentBlock, { x: 0, y: step })
       currentBlock.rope.pointA.y = 10
     }
 
     // Mover rocas activas también
     activeRocks.forEach(rock => {
-      Body.translate(rock, { x: 0, y: step });
+      MatterBody.translate(rock, { x: 0, y: step });
     });
 
     if (performWorldMove._snapActive && performWorldMove._snapAnchor) {
@@ -759,13 +759,13 @@ function dropBlock() {
   World.remove(world, currentBlock.rope)
   currentBlock.rope = null
 
-  Body.setVelocity(currentBlock, { x: 0, y: currentBlock.velocity.y })
+  MatterBody.setVelocity(currentBlock, { x: 0, y: currentBlock.velocity.y })
 
   setTimeout(() => {
     if (gameOver || towerFalling) return
 
     if (placedBlocks.length === 0) {
-      Body.setStatic(currentBlock, true)
+      MatterBody.setStatic(currentBlock, true)
       placedBlocks.push(currentBlock)
     if (level === 3 && placedBlocks.length === 4 && !bossActive) {
       initializeBoss();
@@ -798,7 +798,7 @@ function dropBlock() {
       return
     }
 
-    Body.setStatic(currentBlock, true)
+    MatterBody.setStatic(currentBlock, true)
     placedBlocks.push(currentBlock)
     if (level === 3 && placedBlocks.length === 4 && !bossActive) {
       initializeBoss();
@@ -873,14 +873,14 @@ function makeTowerFall() {
   towerFalling = true
 
   placedBlocks.forEach((block, index) => {
-    Body.setStatic(block, false)
+    MatterBody.setStatic(block, false)
     const wobbleForce = 0.002 + index * 0.0003
     const direction = Math.random() > 0.5 ? 1 : -1
-    Body.applyForce(block, block.position, {
+    MatterBody.applyForce(block, block.position, {
       x: wobbleForce * direction,
       y: 0,
     })
-    Body.setAngularVelocity(block, (Math.random() - 0.5) * 0.1)
+    MatterBody.setAngularVelocity(block, (Math.random() - 0.5) * 0.1)
   })
   
   try {
@@ -900,14 +900,14 @@ function makeTowerFall() {
  * Hace que la torre se tambalee.
  */
 function wobbleTower() {
-  if (towerFalling || isWobbling || placedBlocks.length < 2) return;
+  if (towerFalling || isWobbling || placedBlocks.length < 2 || shieldActive) return;
   isWobbling = true;
 
   placedBlocks.forEach((block, index) => {
-    Body.setStatic(block, false);
+    MatterBody.setStatic(block, false);
     const wobbleForce = 0.0005 + index * 0.00005;
     const direction = Math.random() > 0.5 ? 1 : -1;
-    Body.applyForce(block, block.position, {
+    MatterBody.applyForce(block, block.position, {
       x: wobbleForce * direction,
       y: -0.0005, // A little push up to counteract gravity
     });
@@ -916,9 +916,9 @@ function wobbleTower() {
   setTimeout(() => {
     placedBlocks.forEach((block) => {
       if (!towerFalling) {
-        Body.setVelocity(block, { x: 0, y: 0 });
-        Body.setAngularVelocity(block, 0);
-        Body.setStatic(block, true);
+        MatterBody.setVelocity(block, { x: 0, y: 0 });
+        MatterBody.setAngularVelocity(block, 0);
+        MatterBody.setStatic(block, true);
       }
     });
     isWobbling = false;
@@ -942,18 +942,18 @@ function animateCameraFall(moveAmount = 300, duration = 700, callback) {
     groundOffset -= step
 
     placedBlocks.forEach((block) => {
-      Body.translate(block, { x: 0, y: -step })
+      MatterBody.translate(block, { x: 0, y: -step })
     })
     
     // Mover rocas también
     activeRocks.forEach(rock => {
-      Body.translate(rock, { x: 0, y: -step });
+      MatterBody.translate(rock, { x: 0, y: -step });
     });
     
     if (currentBlock && currentBlock.rope) {
       currentBlock.rope.pointA.x = width / 2
       currentBlock.rope.pointA.y = 10
-      Body.translate(currentBlock, { x: 0, y: -step })
+      MatterBody.translate(currentBlock, { x: 0, y: -step })
     }
     try {
       if (!animateCameraFall._startMonkeyBottomCaptured) {
@@ -1059,8 +1059,8 @@ function throwObjectAtTower() {
     };
 
     // Aplicar velocidad y rotación
-    Body.setVelocity(rock, velocity);
-    Body.setAngularVelocity(rock, (Math.random() - 0.5) * 0.3);
+    MatterBody.setVelocity(rock, velocity);
+    MatterBody.setAngularVelocity(rock, (Math.random() - 0.5) * 0.3);
 
     // Eliminar la roca después de un tiempo para que no se acumulen
     setTimeout(() => {
